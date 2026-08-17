@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 生存游戏</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <!-- 顶部：标题 + 操作按钮 -->
+  <header>
+    <h1>AI 生存游戏</h1>
+    <div class="toolbar">
+      <button id="btnNew">新建游戏</button>
+      <button id="btnSave">保存存档</button>
+      <button id="btnImport">导入存档</button>
+      <input type="file" id="importFile" accept=".json" style="display:none">
+      <button id="btnReloadRules">重新载入规则</button>
+      <button id="btnSettings">设置</button>
+    </div>
+  </header>
+
+  <!-- 日期/灾日横幅 -->
+  <div id="dayBanner">-------- 0天 灾日(正常) --------</div>
+
+  <!-- 六属性状态栏 -->
+  <div id="statsBar"></div>
+
+  <!-- 游戏档案（可折叠：自动分类的长期记忆） -->
+  <details id="memoryPanel">
+    <summary>📋 游戏档案 <span id="memoryCount"></span></summary>
+    <div id="memoryContent"></div>
+  </details>
+
+  <!-- 环境/动作结果区（滚动对话流） -->
+  <main id="log"></main>
+
+  <!-- 固定指令区 -->
+  <footer>
+    <div id="cmdButtons">
+      <button class="cmd" data-cmd="[探索]">[探索]</button>
+      <button class="cmd" data-cmd="[思索]">[思索]</button>
+      <button class="cmd" data-cmd="[专注]">[专注]</button>
+      <button class="cmd" data-cmd="[休息]">[休息]</button>
+      <button class="cmd" data-cmd="[睡觉]">[睡觉]</button>
+      <button class="cmd" data-cmd="[其他]">[其他]</button>
+    </div>
+    <div id="inputRow">
+      <input type="text" id="cmdInput" placeholder="指令 > 输入自定义行动..." autocomplete="off">
+      <button id="btnSend">发送</button>
+    </div>
+  </footer>
+</div>
+
+<!-- 设置弹窗 -->
+<div id="settingsModal" style="display:none">
+  <div class="modal-box">
+    <h2>设置</h2>
+    <div id="apiKeyHint" class="hint"></div>
+    <label>DeepSeek API Key</label>
+    <input type="password" id="apiKeyInput" placeholder="sk-...">
+    <div class="modal-btns">
+      <button id="btnApiSave">保存</button>
+      <button id="btnApiCancel">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="game.js"></script>
+</body>
+</html>
