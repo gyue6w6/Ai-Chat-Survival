@@ -1,3 +1,76 @@
+﻿// ============================================================
+// 全局设置弹窗函数（Via 浏览器兼容版 - 使用内联 onclick）
+// ============================================================
+window.openSettingsModal = function(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    
+    try {
+        // 获取所有需要的 DOM 元素
+        const modal = document.getElementById('settingsModal');
+        if (!modal) {
+            toast('设置弹窗加载失败，请刷新页面');
+            return;
+        }
+        
+        const sel = document.getElementById('providerSelect');
+        const themeSel = document.getElementById('themeSelect');
+        const customFields = document.getElementById('customFields');
+        const keyLabel = document.getElementById('keyLabel');
+        const keyInput = document.getElementById('apiKeyInput');
+        const hintEl = document.getElementById('apiKeyHint');
+        const urlInput = document.getElementById('customUrlInput');
+        const modelInput = document.getElementById('customModelInput');
+        
+        // 1. 同步当前配置
+        const id = getProvider();
+        if (sel) sel.value = id;
+        if (themeSel) themeSel.value = getTheme();
+        if (customFields) customFields.style.display = (id === 'custom') ? 'flex' : 'none';
+        
+        // 2. 自定义服务商特殊处理
+        if (id === 'custom') {
+            if (urlInput) urlInput.value = getCustomUrl();
+            if (modelInput) modelInput.value = getCustomModel();
+        }
+        
+        // 3. 更新 Key 标签
+        const prov = PROVIDERS[id] || PROVIDERS.deepseek;
+        if (keyLabel) {
+            keyLabel.textContent = (id === 'custom' ? '自定义' : prov.label) + ' API Key';
+        }
+        
+        // 4. 处理 Key 输入框
+        if (keyInput) {
+            keyInput.value = '';
+            const savedKey = getKey(id);
+            if (savedKey && savedKey.trim()) {
+                keyInput.value = '（已保存，留空则不修改）';
+            }
+        }
+        
+        // 5. 更新提示信息
+        if (hintEl) {
+            if (id === 'custom') {
+                hintEl.textContent = '自定义：填写任意 OpenAI 兼容接口地址、模型名和 API Key。';
+            } else {
+                const hasKey = !!getKey(id).trim();
+                hintEl.textContent = hasKey
+                    ? '该服务商 Key 已保存在浏览器（留空则不修改）。'
+                    : '请输入你的 ' + prov.label + ' API Key（只存本浏览器）。';
+            }
+        }
+        
+        // 6. ★ 显示弹窗 ★
+        modal.style.display = 'flex';
+        
+    } catch (err) {
+        toast('打开设置失败: ' + err.message);
+        console.error('openSettingsModal error:', err);
+    }
+};
 // AI 生存游戏 —— 前端核心逻辑
 // 状态机 + 规则结算 + AI 调用 + 存档导入导出
 // 双模式：
@@ -1239,67 +1312,10 @@ function init() {
     }
   }
 
-  // ========== ★ 设置按钮（Via 浏览器兼容版：完全同步，无任何 await） ★ ==========
-  // ★ 设置按钮 - 完全同步打开弹窗，不等待任何 fetch（Via 拦截 fetch 也不影响）
-  on($('btnSettings'), 'click', function(e) {
-    // 阻止任何默认行为
-    if (e) { e.preventDefault(); e.stopPropagation(); }
-
-    try {
-      // 第一步：立即获取当前配置（同步操作）
-      const id = getProvider();
-      if (sel) sel.value = id;
-
-      // 同步主题选择框
-      const themeSel = $('themeSelect');
-      if (themeSel) themeSel.value = getTheme();
-
-      // 同步自定义字段显隐
-      if (customFields) customFields.style.display = (id === 'custom') ? 'flex' : 'none';
-
-      // 填入自定义 URL 和模型
-      if (id === 'custom') {
-        const urlInput = $('customUrlInput');
-        const modelInput = $('customModelInput');
-        if (urlInput) urlInput.value = getCustomUrl();
-        if (modelInput) modelInput.value = getCustomModel();
-      }
-
-      // 更新 Key 标签（不用可选链，兼容老 WebView）
-      const prov = PROVIDERS[id] ? PROVIDERS[id] : PROVIDERS.deepseek;
-      if (keyLabel) keyLabel.textContent = (id === 'custom' ? '自定义' : prov.label) + ' API Key';
-
-      // 清空 Key 输入框
-      if (keyInput) keyInput.value = '';
-
-      // 检查 localStorage 是否有已保存的 Key（不 fetch）
-      const savedKey = getKey(id);
-      if (savedKey && keyInput) keyInput.value = '（已保存，留空则不修改）';
-
-      // 更新提示信息
-      const hintEl = $('apiKeyHint');
-      if (hintEl) {
-        if (id === 'custom') {
-          hintEl.textContent = '自定义：填写任意 OpenAI 兼容接口地址、模型名和 API Key。';
-        } else {
-          const hasKey = !!getKey(id).trim();
-          hintEl.textContent = hasKey
-            ? '该服务商 Key 已保存在浏览器（留空则不修改）。'
-            : '请输入你的 ' + prov.label + ' API Key（只存本浏览器）。';
-        }
-      }
-
-      // ★★★ 关键：显示弹窗（完全同步）★★★
-      const modal = $('settingsModal');
-      if (modal) {
-        modal.style.display = 'flex';
-      } else {
-        toast('设置弹窗加载失败，请刷新页面');
-      }
-    } catch (err) {
-      toast('打开设置失败: ' + err.message);
-    }
-  });
+  // ========== 设置按钮 - 已改为内联 onclick，此处不再绑定 ==========
+  // Via 浏览器兼容方案：使用 HTML 中的 onclick="openSettingsModal(event)"
+  // 设置按钮的点击事件已在 HTML 中用内联 onclick 处理，此处无需再绑定
+  // 相关逻辑已移至 window.openSettingsModal() 全局函数
 
   if (sel) on(sel, 'change', syncProviderUI);
 
