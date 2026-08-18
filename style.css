@@ -47,6 +47,18 @@ body {
   flex-direction: column;
   gap: 8px;
 }
+
+/* 移动端 file input 兼容：视觉隐藏而非 display:none（iOS 上 display:none 的 input.click() 可能不触发） */
+input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 #wallpaperSection legend {
   font-size: 12px;
   color: var(--text-dim, #bbb);
@@ -374,6 +386,8 @@ footer {
   padding: 20px;
   width: 90%;
   max-width: 420px;
+  max-height: 88vh;          /* 内容超出时弹窗内滚动，手机也能看到壁纸/插件区 */
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -430,9 +444,10 @@ footer {
 /* ---------- 移动端适配（手机/平板） ---------- */
 @media (max-width: 640px) {
   #app { height: 100dvh; }
-  header { padding: 8px 10px; }
+  header { padding: 8px 10px; flex-direction: column; align-items: flex-start; gap: 6px; }
   header h1 { font-size: 16px; }
-  .toolbar button { font-size: 12px; padding: 4px 8px; }
+  .toolbar { width: 100%; gap: 4px; }
+  .toolbar button { font-size: 12px; padding: 4px 8px; flex: 1; min-width: 0; }
   #statusRow { flex-wrap: wrap; }
   #dayBanner { min-width: 100%; justify-content: flex-start; padding: 4px 10px; border-right: none; border-bottom: 1px solid var(--border, #2e2e38); font-size: 12px; }
   #statsBar { grid-template-columns: repeat(3, 1fr); padding: 3px 8px; gap: 3px; font-size: 11px; }

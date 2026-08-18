@@ -112,7 +112,7 @@ function applyWallpaper() {
   if (!el) return;
   const b64 = getWallpaper();
   if (b64) {
-    el.style.backgroundImage = 'url(' + b64 + ')';
+    el.style.backgroundImage = "url('" + b64 + "')";
     el.classList.add('active');
   } else {
     el.style.backgroundImage = '';

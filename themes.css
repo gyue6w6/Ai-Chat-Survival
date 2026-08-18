@@ -1,0 +1,104 @@
+/* ============================================================
+   主题系统：CSS 变量定义
+   body[data-theme="neon"]   → 蓝紫渐变
+   body[data-theme="dark"]   → 暗黑（默认）
+   ============================================================ */
+
+/* ---------- 默认（暗黑） ---------- */
+body[data-theme="dark"] {
+  --bg: #121212;
+  --bg-grad-1: #121212;
+  --bg-grad-2: #1a1a1f;
+  --panel: #1c1c22;
+  --panel-2: #24242c;
+  --border: #2e2e38;
+  --text: #e8e8ee;
+  --text-dim: #9a9aa8;
+  --accent: #7c8cff;
+  --accent-2: #9a7cff;
+  --user-msg: #7c8cff;
+  --user-msg-bg: rgba(124, 140, 255, 0.12);
+  --ai-msg-bg: #1f1f27;
+  --banner-bg: linear-gradient(90deg, #1a1a22, #22222c);
+  --btn-bg: #26262e;
+  --btn-hover: #33333f;
+  --bar-track: #2a2a34;
+  --shadow: rgba(0, 0, 0, 0.5);
+  --focus-ring: rgba(124, 140, 255, 0.35);
+  --toast-bg: #2a2a34;
+}
+
+/* ---------- 蓝紫渐变 ---------- */
+body[data-theme="neon"] {
+  --bg: #0b0b1e;
+  --bg-grad-1: #4d6bfe;   /* 左下：DeepSeek 品牌蓝 */
+  --bg-grad-2: #a855f7;   /* 右上：紫（占比更多） */
+  --bg-grad-3: #6c5ce7;   /* 中间过渡：蓝紫自然衔接 */
+  --panel: rgba(28, 22, 58, 0.55);
+  --panel-2: rgba(38, 30, 74, 0.6);
+  --border: rgba(150, 110, 230, 0.28);
+  --text: #ecebff;
+  --text-dim: #a9a4d4;
+  --accent: #8b7bff;
+  --accent-2: #c084fc;
+  --user-msg: #a08cff;
+  --user-msg-bg: rgba(139, 123, 255, 0.16);
+  --ai-msg-bg: rgba(34, 26, 70, 0.5);
+  --banner-bg: rgba(20, 16, 46, 0.6);
+  --btn-bg: rgba(90, 76, 190, 0.35);
+  --btn-hover: rgba(150, 110, 255, 0.5);
+  --bar-track: rgba(110, 90, 200, 0.25);
+  --shadow: rgba(90, 50, 180, 0.35);
+  --focus-ring: rgba(200, 120, 255, 0.4);
+  --toast-bg: rgba(60, 40, 120, 0.9);
+}
+
+/* ---------- 主题全局背景 ---------- */
+body[data-theme="dark"] {
+  background: var(--bg);
+}
+body[data-theme="neon"] {
+  /* 深色底（内容可读性兜底） */
+  background: var(--bg);
+}
+/* 动态模糊背景层：左下 DeepSeek 蓝 → 右上紫，流动效果明显。
+   用 absolute + overflow:hidden 替代 fixed+z-index:-1，兼容 iOS Safari */
+body[data-theme="neon"] {
+  position: relative;
+  overflow: hidden;
+}
+body[data-theme="neon"]::before {
+  content: '';
+  position: absolute;
+  top: -60px; left: -60px; right: -60px; bottom: -60px;
+  /* 多色标：蓝 → 蓝紫 → 紫 → 深紫，过渡自然，紫色占多 */
+  background: linear-gradient(to top right,
+    var(--bg-grad-1) 0%,
+    var(--bg-grad-3) 38%,
+    var(--bg-grad-2) 72%,
+    #7c3aed 100%);
+  background-size: cover;
+  filter: blur(22px);         /* 柔和模糊：保留颜色流动感 */
+  opacity: 0.9;
+  z-index: 0;
+  /* 用 transform 移动整个层，流动效果清晰可见 */
+  transform: translate(-3%, -3%) scale(1.15);
+  animation: bgFlow 5s ease-in-out infinite alternate;
+}
+@keyframes bgFlow {
+  0%   { transform: translate(-3%, -3%) scale(1.15); }
+  100% { transform: translate(3%, 3%) scale(1.2); }
+}
+/* 蓝紫主题下，顶栏/底栏/档案区用半透明毛玻璃底，保证可读性且透出背景 */
+body[data-theme="neon"] header,
+body[data-theme="neon"] footer,
+body[data-theme="neon"] #memoryPanel {
+  background: rgba(18, 14, 42, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+body[data-theme="neon"] .stat {
+  background: rgba(28, 22, 58, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
