@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI 生存游戏</title>
+<link rel="stylesheet" href="themes.css">
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-theme="dark">
 <div id="app">
   <!-- 顶部：标题 + 操作按钮 -->
   <header>
@@ -21,36 +22,53 @@
     </div>
   </header>
 
-  <!-- 日期/灾日横幅 -->
-  <div id="dayBanner">-------- 0天 灾日(正常) --------</div>
+  <!-- 主内容列 + 右侧侧边栏 -->
+  <div id="bodyRow">
+    <div id="mainCol">
+      <!-- 日期/灾日 + 六属性状态栏（合并一行） -->
+      <div id="statusRow">
+        <div id="dayBanner">0天 灾日(正常)</div>
+        <div id="statsBar"></div>
+      </div>
 
-  <!-- 六属性状态栏 -->
-  <div id="statsBar"></div>
+      <!-- 游戏档案（可折叠：自动分类的长期记忆） -->
+      <details id="memoryPanel">
+        <summary>📋 游戏档案 <span id="memoryCount"></span></summary>
+        <div id="memoryContent"></div>
+      </details>
 
-  <!-- 游戏档案（可折叠：自动分类的长期记忆） -->
-  <details id="memoryPanel">
-    <summary>📋 游戏档案 <span id="memoryCount"></span></summary>
-    <div id="memoryContent"></div>
-  </details>
+      <!-- 环境/动作结果区（滚动对话流） -->
+      <main id="log"></main>
 
-  <!-- 环境/动作结果区（滚动对话流） -->
-  <main id="log"></main>
-
-  <!-- 固定指令区 -->
-  <footer>
-    <div id="cmdButtons">
-      <button class="cmd" data-cmd="[探索]">[探索]</button>
-      <button class="cmd" data-cmd="[思索]">[思索]</button>
-      <button class="cmd" data-cmd="[专注]">[专注]</button>
-      <button class="cmd" data-cmd="[休息]">[休息]</button>
-      <button class="cmd" data-cmd="[睡觉]">[睡觉]</button>
-      <button class="cmd" data-cmd="[其他]">[其他]</button>
+      <!-- 固定指令区 -->
+      <footer>
+        <div id="cmdButtons">
+          <button class="cmd" data-cmd="[探索]">[探索]</button>
+          <button class="cmd" data-cmd="[思索]">[思索]</button>
+          <button class="cmd" data-cmd="[专注]">[专注]</button>
+          <button class="cmd" data-cmd="[休息]">[休息]</button>
+          <button class="cmd" data-cmd="[睡觉]">[睡觉]</button>
+          <button class="cmd" data-cmd="[其他]">[其他]</button>
+        </div>
+        <div id="inputRow">
+          <input type="text" id="cmdInput" placeholder="指令 > 输入自定义行动..." autocomplete="off">
+          <button id="btnSend">发送</button>
+        </div>
+      </footer>
     </div>
-    <div id="inputRow">
-      <input type="text" id="cmdInput" placeholder="指令 > 输入自定义行动..." autocomplete="off">
-      <button id="btnSend">发送</button>
-    </div>
-  </footer>
+
+    <!-- 右侧侧边栏：文字版小地图 -->
+    <aside id="sidebar">
+      <div id="sidebarHeader">
+        <span>🗺️ 小地图</span>
+        <button id="btnSidebarToggle" title="展开/收起">◀</button>
+      </div>
+      <div id="sidebarBody">
+        <pre id="miniMap"></pre>
+        <div id="mapLegend"></div>
+      </div>
+    </aside>
+  </div>
 </div>
 
 <!-- 设置弹窗 -->
@@ -58,8 +76,56 @@
   <div class="modal-box">
     <h2>设置</h2>
     <div id="apiKeyHint" class="hint"></div>
-    <label>DeepSeek API Key</label>
+
+    <label>界面主题</label>
+    <select id="themeSelect">
+      <option value="dark">暗黑</option>
+      <option value="neon">蓝紫渐变</option>
+    </select>
+
+    <label>AI 服务商</label>
+    <select id="providerSelect">
+      <option value="deepseek">DeepSeek</option>
+      <option value="glm">智谱 GLM（免费）</option>
+      <option value="qwen">通义千问（便宜）</option>
+      <option value="custom">自定义（OpenAI 兼容）</option>
+    </select>
+
+    <div id="customFields" style="display:none">
+      <label>接口地址（https://.../chat/completions）</label>
+      <input type="text" id="customUrlInput" placeholder="https://.../v1/chat/completions">
+      <label>模型名</label>
+      <input type="text" id="customModelInput" placeholder="如 local-model / gpt-4o-mini">
+    </div>
+
+    <label id="keyLabel">API Key</label>
     <input type="password" id="apiKeyInput" placeholder="sk-...">
+
+    <!-- 自定义壁纸 -->
+    <fieldset id="wallpaperSection">
+      <legend>🖼️ 自定义壁纸</legend>
+      <input type="file" id="wallpaperFile" accept="image/*" style="display:none">
+      <button id="btnWallpaperUpload">上传壁纸图片</button>
+      <button id="btnWallpaperClear">清除壁纸</button>
+      <label class="range-row">模糊度 <span id="wallBlurVal">0</span>
+        <input type="range" id="wallBlur" min="0" max="24" step="1" value="0">
+      </label>
+      <label class="range-row">背景明暗 <span id="wallDimVal">0</span>
+        <input type="range" id="wallDim" min="0" max="80" step="1" value="0">
+      </label>
+      <div class="hint">壁纸与调节只保存在你的浏览器中；模糊+明暗让文字更清晰。</div>
+    </fieldset>
+
+    <!-- 自定义规则插件 -->
+    <fieldset id="pluginSection">
+      <legend>🧩 自定义插件</legend>
+      <input type="file" id="pluginFile" accept=".json" style="display:none">
+      <button id="btnPluginImport">导入插件 (.json)</button>
+      <button id="btnPluginExample">查看插件格式</button>
+      <div id="pluginList" class="plugin-list"></div>
+      <div class="hint">插件可自定义状态栏、对话风格、追加规则（完整状态结算）。</div>
+    </fieldset>
+
     <div class="modal-btns">
       <button id="btnApiSave">保存</button>
       <button id="btnApiCancel">关闭</button>
@@ -68,6 +134,9 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- 壁纸背景层（全屏，位于内容之下） -->
+<div id="wallpaper"></div>
 
 <script src="game.js"></script>
 </body>
