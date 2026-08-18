@@ -11,6 +11,16 @@ function toast(msg) {
 }
 
 // ============================================================
+// 服务商配置（必须先定义，供 openSettingsModal 使用）
+// ============================================================
+const PROVIDERS = {
+  deepseek: { label: 'DeepSeek', model: 'deepseek-chat', baseURL: 'https://api.deepseek.com/chat/completions' },
+  glm:      { label: '智谱 GLM（免费）', model: 'glm-4-flash', baseURL: 'https://open.bigmodel.cn/api/paas/v4/chat/completions' },
+  qwen:     { label: '通义千问（便宜）', model: 'qwen-turbo', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions' },
+  custom:   { label: '自定义', model: '', baseURL: '' },
+};
+
+// ============================================================
 // 全局设置弹窗函数（Via 浏览器兼容版 - 使用内联 onclick）
 // ============================================================
 window.openSettingsModal = function(event) {
@@ -92,14 +102,7 @@ window.openSettingsModal = function(event) {
 
 const IS_LOCAL = typeof location !== 'undefined' && /^(127\.0\.0\.1|localhost|\[::1\])/.test(location.hostname);
 
-// ---------- 服务商配置（切换便宜/免费模型） ----------
-// key：内部标识；label：界面显示；model：默认模型；baseURL：OpenAI 兼容接口（公网直连用）
-const PROVIDERS = {
-  deepseek: { label: 'DeepSeek', model: 'deepseek-chat', baseURL: 'https://api.deepseek.com/chat/completions' },
-  glm:      { label: '智谱 GLM（免费）', model: 'glm-4-flash', baseURL: 'https://open.bigmodel.cn/api/paas/v4/chat/completions' },
-  qwen:     { label: '通义千问（便宜）', model: 'qwen-turbo', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions' },
-  custom:   { label: '自定义', model: '', baseURL: '' },
-};
+// ---------- 存储键名配置 ----------
 const STORE_KEYS = {
   provider: 'survival_provider',              // 当前选中的服务商
   keyPrefix: 'survival_key_',                 // 各服务商 Key 存储前缀（survival_key_deepseek 等）
