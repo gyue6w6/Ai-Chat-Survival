@@ -121,6 +121,14 @@ function parseCommandLine(line, commands) {
   commands.push({ name: btnName, prompt: desc });
 }
 
+// 判断首字符是否为 emoji（用码点范围，兼容不支持 \p{Emoji} 的老浏览器/WebView）
+function isEmojiChar(ch) {
+  const cp = typeof ch === 'string' && ch.length ? ch.codePointAt(0) : 0;
+  return (cp >= 0x1F000 && cp <= 0x1FAFF)   // 表情符号区
+    || (cp >= 0x2600 && cp <= 0x27BF)       // 杂项符号/装饰
+    || (cp >= 0x2B00 && cp <= 0x2BFF)       // 箭头等
+    || cp === 0xFE0F || cp === 0x200D;      // 变体选择符/ZWJ
+}
 // 解析状态栏行：数值型「名称：min-max=默认」/「名称：数字」；文本型「名称：初始文本」（非数字）
 function parseStatLine(line, stats) {
   let m = line.match(/^(.+?)\s*[:：]\s*(\d+)\s*[-~]\s*(\d+)\s*(?:[=＝]\s*(\d+))?/);
@@ -147,7 +155,7 @@ function parseStatLine(line, stats) {
       const textDefault = m[2].trim();
       // 图标：用 Array.from 按码点取首字符（正确处理 emoji 代理对）
       const chars = Array.from(label);
-      const firstIsEmoji = /^\p{Emoji}/u.test(chars[0]);
+      const firstIsEmoji = isEmojiChar(chars[0]);
       const icon = firstIsEmoji ? chars[0] : '⭐';
       const cleanLabel = firstIsEmoji ? chars.slice(1).join('').trim() : label;
       stats.push({
@@ -163,7 +171,7 @@ function parseStatLine(line, stats) {
   if (!label || max <= 0) return;
   // 图标：用 Array.from 按码点取首字符（正确处理 emoji 代理对）
   const chars = Array.from(label);
-  const firstIsEmoji = /^\p{Emoji}/u.test(chars[0]);
+  const firstIsEmoji = isEmojiChar(chars[0]);
   const icon = firstIsEmoji ? chars[0] : '⭐';
   const cleanLabel = firstIsEmoji ? chars.slice(1).join('').trim() : label;
   // key 用 m_ 前缀天然隔离基底状态键，无需保留字过滤
@@ -1396,6 +1404,36 @@ function init() {
     a.click();
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 100);
     toast('已下载示例 Mod');
+  });
+
+  // Mod：从文本框粘贴导入（绕开手机文件读取问题）
+  $('btnPluginPaste').addEventListener('click', () => {
+    const text = ($('pluginPaste') ? $('pluginPaste').value : '') || '';
+    if (!text.trim()) {
+      toast('请先粘贴 Mod 文本');
+      return;
+    }
+    try {
+      const m = parseTxtMod(text);
+      if (!m) throw new Error('Mod 格式无效（缺少【Mod名】？）');
+      const list = loadMods();
+      const idx = list.findIndex((x) => {
+        const parsed = parseTxtMod(x);
+        return parsed && parsed.id === m.id;
+      });
+      const rawText = text.trim();
+      if (idx >= 0) list[idx] = rawText;
+      else list.push(rawText);
+      saveMods(list);
+      setModEnabled(m.id, true);
+      renderPluginList();
+      ensurePluginStats(G);
+      renderAll(G);
+      $('pluginPaste').value = '';
+      toast('Mod 已导入并启用：' + m.name);
+    } catch (err) {
+      toast('Mod 导入失败：' + err.message);
+    }
   });
 
   $('btnApiCancel').addEventListener('click', () => ($('settingsModal').style.display = 'none'));

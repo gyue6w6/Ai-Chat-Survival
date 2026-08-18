@@ -80,6 +80,18 @@ input[type="file"] {
   color: var(--text-dim, #bbb);
   padding: 0 4px;
 }
+#pluginPaste {
+  background: var(--panel-2, #111);
+  border: 1px solid var(--border, #444);
+  color: var(--text, #eee);
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+}
+#pluginPaste:focus { outline: none; border-color: var(--accent, #7c8cff); }
 .plugin-list { display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto; }
 .plugin-item {
   display: flex;
