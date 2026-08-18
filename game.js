@@ -1232,22 +1232,29 @@ function init() {
     const themeSel = $('themeSelect');
     if (themeSel) themeSel.value = getTheme();
 
-    if (id === 'custom') {
-      $('customUrlInput').value = getCustomUrl();
-      $('customModelInput').value = getCustomModel();
-    } else if (isLocalMode()) {
-      // 本地模式：从服务端读对应已配置情况
-      try {
-        const res = await fetch('/api/config');
-        const data = await res.json();
-        if (data.configured && data.configured[id]) keyInput.value = '（已配置，留空则不修改）';
-      } catch (e) {}
-    } else {
-      // 公网模式：读浏览器本地
-      if (getKey(id).trim()) keyInput.value = '（已保存，留空则不修改）';
-    }
+    // 先显示弹窗（确保设置一定能打开，不受后续网络请求影响）
     syncProviderUI();
     $('settingsModal').style.display = 'flex';
+
+    // 异步填充 Key 状态（带超时，Via 拦截 fetch 也不阻塞弹窗）
+    try {
+      if (id === 'custom') {
+        $('customUrlInput').value = getCustomUrl();
+        $('customModelInput').value = getCustomModel();
+      } else if (isLocalMode()) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 1500);
+        try {
+          const res = await fetch('/api/config', { signal: ctrl.signal });
+          const data = await res.json();
+          if (data.configured && data.configured[id]) keyInput.value = '（已配置，留空则不修改）';
+        } finally {
+          clearTimeout(timer);
+        }
+      } else {
+        if (getKey(id).trim()) keyInput.value = '（已保存，留空则不修改）';
+      }
+    } catch (e) { /* 读取失败不阻塞 */ }
   });
 
   sel.addEventListener('change', syncProviderUI);
@@ -1485,10 +1492,7 @@ function init() {
 (async function boot() {
   applyTheme();          // 应用已保存的界面主题
   applyWallpaper();      // 应用已保存的壁纸与调节
-  await detectMode();   // 先确定运行模式（本地代理 or 公网直连）
-  await loadRules();
-
-  // 尝试恢复：优先自动存档
+  // 恢复存档（不依赖网络，先做）
   let restored = null;
   try {
     const raw = localStorage.getItem(AUTOSAVE_KEY);
@@ -1505,19 +1509,15 @@ function init() {
     });
   }
 
-  // 公网模式且未填 Key：开局提示
-  if (!isLocalMode()) {
-    const provId = getProvider();
-    const needKey = provId === 'custom' ? !getCustomUrl().trim() || !getKey(provId).trim() : !getKey(provId).trim();
-    if (needKey) {
-      const prov = PROVIDERS[provId];
-      G.history.push({
-        role: 'sys',
-        text: '📌 公网模式：请先点击右上角「设置」，填入所选服务商（' + prov.label + '）的 API Key 后再开始游戏。',
-      });
-    }
-  }
-
+  // 立即渲染并绑定事件（即使 detectMode/loadRules 未完成，设置等按钮也先可用）
   renderAll(G);
   init();
+
+  // 后台完成模式探测与规则加载（不阻塞 UI；Via 拦截 fetch 也不影响按钮）
+  detectMode().then(() => {
+    renderAll(G);   // 模式确定后刷新（如公网提示）
+  }).catch(() => {});
+  loadRules().then((ok) => {
+    if (!ok) { /* 规则加载失败静默 */ }
+  }).catch(() => {});
 })();
