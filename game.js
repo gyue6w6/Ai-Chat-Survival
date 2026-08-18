@@ -803,7 +803,8 @@ function autosave(state) {
 
 function exportSave(state) {
   const stamp = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
+  // 兼容写法（不依赖 ES2017 的 padStart，Via 老 WebView 也能用）
+  const pad = (n) => ('0' + n).slice(-2);
   const fname = 'survival_save_' + stamp.getFullYear() + pad(stamp.getMonth() + 1) + pad(stamp.getDate())
     + '_' + pad(stamp.getHours()) + pad(stamp.getMinutes()) + '.json';
   const json = JSON.stringify({ format: 'survival-save', savedAt: stamp.toISOString(), state }, null, 2);
@@ -1203,11 +1204,11 @@ function init() {
   const keyInput = $('apiKeyInput');
   const keyLabel = $('keyLabel');
 
-  // 切换服务商时更新关键字段显示状态、自定义字段显隐
+  // 切换服务商时更新关键字段显示状态、自定义字段显隐（纯 localStorage 判断，不依赖网络）
   function syncProviderUI() {
     const id = sel.value;
     if (customFields) customFields.style.display = (id === 'custom') ? 'flex' : 'none';
-    const prov = PROVIDERS[id];
+    const prov = PROVIDERS[id] ? PROVIDERS[id] : PROVIDERS.deepseek;
     if (keyLabel) keyLabel.textContent = (id === 'custom' ? '自定义' : prov.label) + ' API Key';
     // 提示当前服务商已配置情况
     const hintEl = $('apiKeyHint');
@@ -1215,49 +1216,77 @@ function init() {
       if (id === 'custom') {
         hintEl.textContent = '自定义：填写任意 OpenAI 兼容接口地址、模型名和 API Key。';
       } else {
-        const configured = isLocalMode() ? null : !!getKey(id).trim();
-        hintEl.textContent = isLocalMode()
-          ? '本地模式：服务商 Key 由电脑上的 config.json 管理（可选在此修改）。'
-          : (configured ? '该服务商 Key 已保存在浏览器（留空则不修改）。' : '公网模式：填你自己的 ' + prov.label + ' API Key（只存本浏览器）。');
+        const hasKey = !!getKey(id).trim();
+        hintEl.textContent = hasKey
+          ? '该服务商 Key 已保存在浏览器（留空则不修改）。'
+          : '请输入你的 ' + prov.label + ' API Key（只存本浏览器）。';
       }
     }
   }
 
-  $('btnSettings').addEventListener('click', async () => {
-    const id = getProvider();
-    sel.value = id;
-    keyInput.value = '';
+  // ========== ★ 设置按钮（Via 浏览器兼容版：完全同步，无任何 await） ★ ==========
+  // ★ 设置按钮 - 完全同步打开弹窗，不等待任何 fetch（Via 拦截 fetch 也不影响）
+  $('btnSettings').addEventListener('click', function(e) {
+    // 阻止任何默认行为
+    if (e) { e.preventDefault(); e.stopPropagation(); }
 
-    // 同步主题选择框
-    const themeSel = $('themeSelect');
-    if (themeSel) themeSel.value = getTheme();
-
-    // 先显示弹窗（确保设置一定能打开，不受后续网络请求影响）
-    syncProviderUI();
-    $('settingsModal').style.display = 'flex';
-
-    // 异步填充 Key 状态（带超时，Via 拦截 fetch 也不阻塞弹窗）
     try {
+      // 第一步：立即获取当前配置（同步操作）
+      const id = getProvider();
+      if (sel) sel.value = id;
+
+      // 同步主题选择框
+      const themeSel = $('themeSelect');
+      if (themeSel) themeSel.value = getTheme();
+
+      // 同步自定义字段显隐
+      if (customFields) customFields.style.display = (id === 'custom') ? 'flex' : 'none';
+
+      // 填入自定义 URL 和模型
       if (id === 'custom') {
-        $('customUrlInput').value = getCustomUrl();
-        $('customModelInput').value = getCustomModel();
-      } else if (isLocalMode()) {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 1500);
-        try {
-          const res = await fetch('/api/config', { signal: ctrl.signal });
-          const data = await res.json();
-          if (data.configured && data.configured[id]) keyInput.value = '（已配置，留空则不修改）';
-        } finally {
-          clearTimeout(timer);
-        }
-      } else {
-        if (getKey(id).trim()) keyInput.value = '（已保存，留空则不修改）';
+        const urlInput = $('customUrlInput');
+        const modelInput = $('customModelInput');
+        if (urlInput) urlInput.value = getCustomUrl();
+        if (modelInput) modelInput.value = getCustomModel();
       }
-    } catch (e) { /* 读取失败不阻塞 */ }
+
+      // 更新 Key 标签（不用可选链，兼容老 WebView）
+      const prov = PROVIDERS[id] ? PROVIDERS[id] : PROVIDERS.deepseek;
+      if (keyLabel) keyLabel.textContent = (id === 'custom' ? '自定义' : prov.label) + ' API Key';
+
+      // 清空 Key 输入框
+      if (keyInput) keyInput.value = '';
+
+      // 检查 localStorage 是否有已保存的 Key（不 fetch）
+      const savedKey = getKey(id);
+      if (savedKey && keyInput) keyInput.value = '（已保存，留空则不修改）';
+
+      // 更新提示信息
+      const hintEl = $('apiKeyHint');
+      if (hintEl) {
+        if (id === 'custom') {
+          hintEl.textContent = '自定义：填写任意 OpenAI 兼容接口地址、模型名和 API Key。';
+        } else {
+          const hasKey = !!getKey(id).trim();
+          hintEl.textContent = hasKey
+            ? '该服务商 Key 已保存在浏览器（留空则不修改）。'
+            : '请输入你的 ' + prov.label + ' API Key（只存本浏览器）。';
+        }
+      }
+
+      // ★★★ 关键：显示弹窗（完全同步）★★★
+      const modal = $('settingsModal');
+      if (modal) {
+        modal.style.display = 'flex';
+      } else {
+        toast('设置弹窗加载失败，请刷新页面');
+      }
+    } catch (err) {
+      toast('打开设置失败: ' + err.message);
+    }
   });
 
-  sel.addEventListener('change', syncProviderUI);
+  if (sel) sel.addEventListener('change', syncProviderUI);
 
   // 主题切换：即时生效 + 持久化
   const themeSel = $('themeSelect');
@@ -1460,29 +1489,37 @@ function init() {
 
     // 保存 Key（留空或占位符时跳过，不清空已有）
     if (v && !v.startsWith('（')) {
+      const provLabel = PROVIDERS[id] ? PROVIDERS[id].label : id;
       if (isLocalMode()) {
         let ok = false;
         try {
-          const resp = await fetch('/api/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ provider: id, key: v }),
-          });
-          const data = await resp.json().catch(() => ({}));
-          ok = resp.ok && data.ok;
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 3000);
+          try {
+            const resp = await fetch('/api/config', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ provider: id, key: v }),
+              signal: ctrl.signal,
+            });
+            const data = await resp.json().catch(() => ({}));
+            ok = resp.ok && data.ok;
+          } finally {
+            clearTimeout(timer);
+          }
         } catch (e) { ok = false; }
         if (ok) {
-          toast('Key 已保存（' + PROVIDERS[id].label + '）');
+          toast('Key 已保存（' + provLabel + '）');
         } else {
           toast('保存失败：请确认本地服务正在运行');
           return; // 失败时保持弹窗打开
         }
       } else {
         setKey(id, v);
-        toast('Key 已保存在浏览器（' + PROVIDERS[id].label + '）');
+        toast('Key 已保存在浏览器（' + provLabel + '）');
       }
     } else {
-      toast('已选择服务商：' + PROVIDERS[id].label);
+      toast('已选择服务商：' + (PROVIDERS[id] ? PROVIDERS[id].label : id));
     }
     $('settingsModal').style.display = 'none';
   });
