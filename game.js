@@ -1,4 +1,16 @@
 ﻿// ============================================================
+// toast 函数（必须最先定义，供 openSettingsModal 调用）
+// ============================================================
+function toast(msg) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => (t.style.display = 'none'), 2500);
+}
+
+// ============================================================
 // 全局设置弹窗函数（Via 浏览器兼容版 - 使用内联 onclick）
 // ============================================================
 window.openSettingsModal = function(event) {
@@ -71,6 +83,7 @@ window.openSettingsModal = function(event) {
         console.error('openSettingsModal error:', err);
     }
 };
+
 // AI 生存游戏 —— 前端核心逻辑
 // 状态机 + 规则结算 + AI 调用 + 存档导入导出
 // 双模式：
@@ -1104,14 +1117,6 @@ function renderAll(state) {
   renderModCommands(state);
   renderLog(state);
   autosave(state);
-}
-
-function toast(msg) {
-  const t = $('toast');
-  t.textContent = msg;
-  t.style.display = 'block';
-  clearTimeout(t._timer);
-  t._timer = setTimeout(() => (t.style.display = 'none'), 2500);
 }
 
 // ---------- 主流程 ----------
