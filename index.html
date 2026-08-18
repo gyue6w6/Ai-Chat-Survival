@@ -18,7 +18,39 @@
       <button id="btnImport">导入存档</button>
       <input type="file" id="importFile" accept=".json">
       <button id="btnReloadRules">重新载入规则</button>
-      <button id="btnSettings" onclick="openSettingsModal(event)">设置</button>
+      <button id="btnSettings" onclick="(function(){
+        try{
+          var modal=document.getElementById('settingsModal');
+          if(!modal){alert('设置弹窗加载失败');return;}
+          var sel=document.getElementById('providerSelect');
+          var themeSel=document.getElementById('themeSelect');
+          var customFields=document.getElementById('customFields');
+          var keyLabel=document.getElementById('keyLabel');
+          var keyInput=document.getElementById('apiKeyInput');
+          var hintEl=document.getElementById('apiKeyHint');
+          var urlInput=document.getElementById('customUrlInput');
+          var modelInput=document.getElementById('customModelInput');
+          var id='deepseek';
+          try{id=localStorage.getItem('survival_provider')||'deepseek';}catch(e){}
+          if(sel)sel.value=id;
+          if(themeSel){var t='dark';try{t=localStorage.getItem('survival_theme')||'dark';}catch(e){}themeSel.value=t;}
+          if(customFields)customFields.style.display=(id==='custom')?'flex':'none';
+          if(id==='custom'){
+            if(urlInput){try{urlInput.value=localStorage.getItem('survival_custom_url')||'';}catch(e){}}
+            if(modelInput){try{modelInput.value=localStorage.getItem('survival_custom_model')||'';}catch(e){}}
+          }
+          var labels={deepseek:'DeepSeek',glm:'智谱 GLM（免费）',qwen:'通义千问（便宜）',custom:'自定义'};
+          if(keyLabel)keyLabel.textContent=(id==='custom'?'自定义':(labels[id]||''))+' API Key';
+          if(keyInput){keyInput.value='';var sk='';try{sk=localStorage.getItem('survival_key_'+id)||'';}catch(e){}if(sk)keyInput.value='（已保存，留空则不修改）';}
+          if(hintEl){
+            if(id==='custom'){hintEl.textContent='自定义：填写任意 OpenAI 兼容接口地址、模型名和 API Key。';}
+            else{var hasKey=false;try{hasKey=!!localStorage.getItem('survival_key_'+id);}catch(e){}hintEl.textContent=hasKey?'该服务商 Key 已保存在浏览器（留空则不修改）。':'请输入你的 '+(labels[id]||id)+' API Key（只存本浏览器）。';}
+          }
+          modal.style.display='flex';
+        }catch(err){
+          alert('打开设置失败: '+err.message);
+        }
+      })()">设置</button>
     </div>
   </header>
 
