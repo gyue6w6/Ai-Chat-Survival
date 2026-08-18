@@ -851,6 +851,21 @@ function parseSaveFile(text) {
 // ---------- 界面渲染 ----------
 const $ = (id) => document.getElementById(id);
 
+// 兼容事件绑定：Via WebView 的 addEventListener 可能不触发（已实测 click 失效），
+// 统一改用 el['on'+type] 属性赋值（onclick/onchange/oninput/onkeydown），所有浏览器都可靠。
+function on(el, type, fn) {
+  if (!el) return;
+  var attr = 'on' + type;   // click → onclick, change → onchange, input → oninput, keydown → onkeydown
+  if (attr in el) {
+    el[attr] = function(ev) {
+      return fn.call(this, ev);
+    };
+  } else {
+    // 极老的浏览器若连属性名都不识别，退回 addEventListener
+    el.addEventListener(type, fn);
+  }
+}
+
 // 记录各状态项旧值，用于数值变化闪烁提示
 let _prevStats = {};
 
@@ -871,7 +886,7 @@ function renderModCommands() {
     b.className = 'cmd mod-command';
     b.setAttribute('data-cmd', label);
     b.textContent = label;
-    b.addEventListener('click', () => sendCommand(label));
+    on(b, 'click', () => sendCommand(label));
     container.appendChild(b);
   }
 }
@@ -1123,7 +1138,7 @@ function init() {
       try { localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0'); } catch (e) {}
     };
     applySidebar();
-    toggleBtn.addEventListener('click', () => {
+    on(toggleBtn, 'click', () => {
       collapsed = !collapsed;
       applySidebar();
     });
@@ -1131,7 +1146,7 @@ function init() {
 
   // 指令按钮（只绑基底按钮；Mod 按钮由 renderModCommands 单独绑定，避免双重监听）
   document.querySelectorAll('#cmdButtons .cmd:not(.mod-command)').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    on(btn, 'click', () => {
       const c = btn.dataset.cmd;
       if (c === '[其他]') {
         $('cmdInput').focus();
@@ -1141,13 +1156,13 @@ function init() {
     });
   });
 
-  $('btnSend').addEventListener('click', () => sendCommand($('cmdInput').value));
-  $('cmdInput').addEventListener('keydown', (e) => {
+  on($('btnSend'), 'click', () => sendCommand($('cmdInput').value));
+  on($('cmdInput'), 'keydown', (e) => {
     if (e.key === 'Enter') sendCommand($('cmdInput').value);
   });
 
   // 新建游戏
-  $('btnNew').addEventListener('click', () => {
+  on($('btnNew'), 'click', () => {
     if (!confirm('确定要新建游戏吗？当前进度将丢失（自动存档仍保留）。')) return;
     G = newGameState();
     _prevStats = {};   // 重置状态变化追踪，避免新建时闪烁
@@ -1158,14 +1173,14 @@ function init() {
   });
 
   // 保存存档（下载 JSON 文件）
-  $('btnSave').addEventListener('click', () => {
+  on($('btnSave'), 'click', () => {
     const fname = exportSave(G);
     toast('存档已导出：' + fname + '（.json 文件）');
   });
 
   // 导入存档
-  $('btnImport').addEventListener('click', () => $('importFile').click());
-  $('importFile').addEventListener('change', async (e) => {
+  on($('btnImport'), 'click', () => $('importFile').click());
+  on($('importFile'), 'change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     // 提前拦截明显错误的文件类型
@@ -1193,7 +1208,7 @@ function init() {
   });
 
   // 重新载入规则
-  $('btnReloadRules').addEventListener('click', async () => {
+  on($('btnReloadRules'), 'click', async () => {
     const ok = await loadRules();
     toast(ok ? '规则已重新载入' : '规则文件读取失败');
   });
@@ -1226,7 +1241,7 @@ function init() {
 
   // ========== ★ 设置按钮（Via 浏览器兼容版：完全同步，无任何 await） ★ ==========
   // ★ 设置按钮 - 完全同步打开弹窗，不等待任何 fetch（Via 拦截 fetch 也不影响）
-  $('btnSettings').addEventListener('click', function(e) {
+  on($('btnSettings'), 'click', function(e) {
     // 阻止任何默认行为
     if (e) { e.preventDefault(); e.stopPropagation(); }
 
@@ -1286,20 +1301,20 @@ function init() {
     }
   });
 
-  if (sel) sel.addEventListener('change', syncProviderUI);
+  if (sel) on(sel, 'change', syncProviderUI);
 
   // 主题切换：即时生效 + 持久化
   const themeSel = $('themeSelect');
   if (themeSel) {
-    themeSel.addEventListener('change', () => {
+    on(themeSel, 'change', () => {
       setTheme(themeSel.value);
       toast('主题已切换：' + (themeSel.value === 'neon' ? '蓝紫渐变' : '暗黑'));
     });
   }
 
   // 壁纸：上传
-  $('btnWallpaperUpload').addEventListener('click', () => $('wallpaperFile').click());
-  $('wallpaperFile').addEventListener('change', async (e) => {
+  on($('btnWallpaperUpload'), 'click', () => $('wallpaperFile').click());
+  on($('wallpaperFile'), 'change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     try {
@@ -1313,7 +1328,7 @@ function init() {
     setTimeout(() => { e.target.value = ''; }, 0);
   });
   // 壁纸：清除
-  $('btnWallpaperClear').addEventListener('click', () => {
+  on($('btnWallpaperClear'), 'click', () => {
     setWallpaper('');
     applyWallpaper();
     toast('壁纸已清除');
@@ -1326,7 +1341,7 @@ function init() {
   if (blurEl) {
     blurEl.value = getWallBlur();
     blurVal.textContent = blurEl.value;
-    blurEl.addEventListener('input', () => {
+    on(blurEl, 'input', () => {
       blurVal.textContent = blurEl.value;
       setWallBlur(parseInt(blurEl.value, 10));
       applyWallpaper();
@@ -1335,7 +1350,7 @@ function init() {
   if (dimEl) {
     dimEl.value = getWallDim();
     dimVal.textContent = dimEl.value;
-    dimEl.addEventListener('input', () => {
+    on(dimEl, 'input', () => {
       dimVal.textContent = dimEl.value;
       setWallDim(parseInt(dimEl.value, 10));
       applyWallpaper();
@@ -1366,7 +1381,7 @@ function init() {
 
     // 启用开关
     pluginListEl.querySelectorAll('input[data-id]').forEach((cb) => {
-      cb.addEventListener('change', () => {
+      on(cb, 'change', () => {
         const id = cb.getAttribute('data-id');
         setModEnabled(id, cb.checked);
         renderAll(G);
@@ -1376,7 +1391,7 @@ function init() {
     });
     // 删除按钮
     pluginListEl.querySelectorAll('[data-del]').forEach((btn) => {
-      btn.addEventListener('click', () => {
+      on(btn, 'click', () => {
         const id = btn.getAttribute('data-del');
         const removed = allMods().find((m) => m.id === id);
         const mods2 = loadMods().filter((raw) => {
@@ -1398,8 +1413,8 @@ function init() {
   renderPluginList();
 
   // Mod：导入 TXT
-  $('btnPluginImport').addEventListener('click', () => $('pluginFile').click());
-  $('pluginFile').addEventListener('change', async (e) => {
+  on($('btnPluginImport'), 'click', () => $('pluginFile').click());
+  on($('pluginFile'), 'change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     try {
@@ -1429,7 +1444,7 @@ function init() {
   });
 
   // Mod：示例格式（下载）
-  $('btnPluginExample').addEventListener('click', () => {
+  on($('btnPluginExample'), 'click', () => {
     const exampleTxt = `${'【Mod名】示例Mod\n【版本】v1.0\n【规则】\n· 这是示例 Mod 的世界观与规则说明。\n· 新增规则：当理智低于 30 时，玩家会出现幻觉，行动可能失败。\n【指令】\n· [喝茶]：提供微量食物厌倦缓解（示例指令）\n【状态栏】\n· 🧠理智：0-100=80\n· 🍀运气：0-50=25\n· 🏅资质：平庸（文本型，AI直接设置文字）\n【回答风格】\n· 你的描写要更注重心理氛围和情绪。'}`;
     const blob = new Blob([exampleTxt], { type: 'text/plain' });
     const a = document.createElement('a');
@@ -1443,7 +1458,7 @@ function init() {
   });
 
   // Mod：从文本框粘贴导入（绕开手机文件读取问题）
-  $('btnPluginPaste').addEventListener('click', () => {
+  on($('btnPluginPaste'), 'click', () => {
     const text = ($('pluginPaste') ? $('pluginPaste').value : '') || '';
     if (!text.trim()) {
       toast('请先粘贴 Mod 文本');
@@ -1472,9 +1487,9 @@ function init() {
     }
   });
 
-  $('btnApiCancel').addEventListener('click', () => ($('settingsModal').style.display = 'none'));
+  on($('btnApiCancel'), 'click', () => ($('settingsModal').style.display = 'none'));
 
-  $('btnApiSave').addEventListener('click', async () => {
+  on($('btnApiSave'), 'click', async () => {
     const id = sel.value;
     const v = keyInput.value.trim();
 
