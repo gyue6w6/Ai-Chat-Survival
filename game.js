@@ -1156,7 +1156,7 @@ function init() {
 
   // 导入存档
   $('btnImport').addEventListener('click', () => $('importFile').click());
-  $('importFile').addEventListener('change', (e) => {
+  $('importFile').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     // 提前拦截明显错误的文件类型
@@ -1166,28 +1166,21 @@ function init() {
       e.target.value = '';
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const text = String(reader.result);
-        // 内容级检测：PDF 文件头 %PDF
-        if (text.startsWith('%PDF')) {
-          toast('导入失败：这个文件是 PDF（其内容以 %PDF 开头），不是 JSON 存档');
-          return;
-        }
-        G = parseSaveFile(text);
-        if (!G.history.length) G.history.push({ role: 'sys', text: '存档导入成功（无对话历史）' });
-        renderAll(G);
-        toast('存档导入成功');
-      } catch (err) {
-        toast('导入失败：' + err.message + '（请确认选择的是「保存存档」导出的 .json 文件）');
+    try {
+      const text = await file.text();
+      // 内容级检测：PDF 文件头 %PDF
+      if (text.startsWith('%PDF')) {
+        toast('导入失败：这个文件是 PDF（其内容以 %PDF 开头），不是 JSON 存档');
+        return;
       }
-    };
-    reader.onerror = () => {
-      toast('存档文件读取失败，请重试');
-    };
-    reader.onloadend = () => { e.target.value = ''; };
-    reader.readAsText(file);
+      G = parseSaveFile(text);
+      if (!G.history.length) G.history.push({ role: 'sys', text: '存档导入成功（无对话历史）' });
+      renderAll(G);
+      toast('存档导入成功');
+    } catch (err) {
+      toast('导入失败：' + err.message + '（请确认选择的是「保存存档」导出的 .json 文件）');
+    }
+    e.target.value = '';
   });
 
   // 重新载入规则
@@ -1362,40 +1355,33 @@ function init() {
 
   // Mod：导入 TXT
   $('btnPluginImport').addEventListener('click', () => $('pluginFile').click());
-  $('pluginFile').addEventListener('change', (e) => {
+  $('pluginFile').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const text = String(reader.result);
-        const m = parseTxtMod(text);
-        if (!m) throw new Error('Mod 格式无效（缺少【Mod名】？）');
-        const list = loadMods();
-        // 同 id 覆盖
-        const idx = list.findIndex((x) => {
-          const parsed = parseTxtMod(x);
-          return parsed && parsed.id === m.id;
-        });
-        const rawText = text.trim();
-        if (idx >= 0) list[idx] = rawText;
-        else list.push(rawText);
-        saveMods(list);
-        setModEnabled(m.id, true);   // 新导入默认启用
-        renderPluginList();
-        ensurePluginStats(G);
-        renderAll(G);
-        toast('Mod 已导入并启用：' + m.name);
-      } catch (err) {
-        toast('Mod 导入失败：' + err.message);
-      }
-    };
-    reader.onerror = () => {
-      toast('Mod 文件读取失败，请重试');
-    };
-    // 读取完成后再重置 input，避免 iOS 中断读取
-    reader.onloadend = () => { e.target.value = ''; };
-    reader.readAsText(file);
+    try {
+      // 用 file.text()（Promise）读取，比 FileReader 更兼容手机浏览器
+      const text = await file.text();
+      const m = parseTxtMod(text);
+      if (!m) throw new Error('Mod 格式无效（缺少【Mod名】？）');
+      const list = loadMods();
+      // 同 id 覆盖
+      const idx = list.findIndex((x) => {
+        const parsed = parseTxtMod(x);
+        return parsed && parsed.id === m.id;
+      });
+      const rawText = text.trim();
+      if (idx >= 0) list[idx] = rawText;
+      else list.push(rawText);
+      saveMods(list);
+      setModEnabled(m.id, true);   // 新导入默认启用
+      renderPluginList();
+      ensurePluginStats(G);
+      renderAll(G);
+      toast('Mod 已导入并启用：' + m.name);
+    } catch (err) {
+      toast('Mod 导入失败：' + err.message);
+    }
+    e.target.value = '';
   });
 
   // Mod：示例格式（下载）
