@@ -94,6 +94,11 @@ input[type="file"] {
 .plugin-item .p-name { flex: 1; font-weight: bold; color: var(--text, #eee); }
 .plugin-item .p-meta { color: var(--text-dim, #9a9aa8); font-size: 11px; }
 .plugin-item button { padding: 2px 8px; font-size: 11px; }
+.plugin-toggle { display: flex; align-items: center; gap: 6px; flex: 1; cursor: pointer; }
+.plugin-toggle input[type="checkbox"] {
+  accent-color: var(--accent, #7c8cff);
+  width: 14px; height: 14px; margin: 0;
+}
 .plugin-empty { color: var(--text-dim, #666); font-size: 12px; font-style: italic; }
 .range-row {
   display: flex;
@@ -163,24 +168,47 @@ input[type="file"] {
   flex-direction: column;
   gap: 10px;
 }
-#miniMap {
-  font-family: "Consolas", "Courier New", monospace;
-  font-size: 13px;
-  line-height: 1.35;
-  color: var(--text, #e8e8ee);
+/* 侧边栏：背包/家/地点分区 */
+.sb-section {
   background: var(--panel-2, #24242c);
   border: 1px solid var(--border, #2e2e38);
   border-radius: 8px;
-  padding: 10px;
-  white-space: pre;
-  overflow-x: auto;
+  padding: 8px 10px;
 }
-#mapLegend {
-  font-size: 12px;
+.sb-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--text, #e8e8ee);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.sb-count {
+  font-size: 11px;
   color: var(--text-dim, #9a9aa8);
-  line-height: 1.6;
+  font-weight: normal;
 }
-#mapLegend .lg-item { margin: 2px 0; }
+.sb-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.sb-list li {
+  font-size: 12px;
+  color: var(--text, #e8e8ee);
+  padding: 2px 0;
+  border-bottom: 1px dashed var(--border, #2e2e38);
+}
+.sb-list li:last-child { border-bottom: none; }
+.sb-empty {
+  font-size: 12px;
+  color: var(--text-dim, #666);
+  font-style: italic;
+}
 
 header {
   padding: 10px 14px;

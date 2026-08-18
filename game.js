@@ -24,73 +24,232 @@ const STORE_KEYS = {
   wallBlur: 'survival_wall_blur',             // 壁纸模糊度
   wallDim: 'survival_wall_dim',               // 壁纸明暗（暗化遮罩）
   plugins: 'survival_plugins',                // 已导入插件列表（JSON 字符串）
+  mods: 'survival_mods',                      // 已导入 Mod 列表（TXT 内容 + 启用状态）
+  modEnabled: 'survival_mod_enabled',         // Mod 启用状态映射（JSON 对象）
 };
 
-// ---------- 自定义规则插件 ----------
-// 插件格式：{ id, name, version, stats:[{key,icon,label,max,default}], stylePrompt, extraRules }
-const MAX_PLUGIN_STATS = 8;   // 插件可自定义状态项上限
+// ---------- 自定义 Mod（TXT 格式，无门槛） ----------
+// TXT Mod 格式：
+//   【Mod名】天末灾日
+//   【版本】v1.0
+//   【规则】· 病毒蔓延…  · 血月日…
+//   【指令】· [喝茶]：提供微量食物厌倦缓解
+//   【状态栏】· 理智：0-100=80
+//   【回答风格】· 冷峻，心理描写
+const MAX_MOD_STATS = 8;   // Mod 可自定义状态项上限
 
-function loadPlugins() {
+// 解析 TXT Mod：输入原始文本，输出规范化 Mod 对象（解析失败返回 null）
+function parseTxtMod(rawText) {
+  if (!rawText || typeof rawText !== 'string') return null;
+  const lines = String(rawText).split(/\r?\n/);
+  let name = '';
+  let version = '';
+  let rules = '';
+  let style = '';
+  const commands = [];
+  const stats = [];
+  let currentSection = '';
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#') || line.startsWith('//')) continue;  // 空行/注释
+
+    // 识别节标题：【xxx】
+    const secMatch = line.match(/^【(.+?)】/);
+    if (secMatch) {
+      const secName = secMatch[1];
+      const rest = line.slice(secMatch[0].length).trim();
+      const secKey = secName.toLowerCase();   // 统一小写比较，覆盖所有大小写变体
+      if (secKey === 'mod名') {
+        name = rest || name;
+        currentSection = '';
+      } else if (secKey === '版本') {
+        version = rest || version;
+        currentSection = '';
+      } else if (secKey === '规则') {
+        currentSection = 'rules';
+        if (rest) rules += rest + '\n';
+      } else if (secKey === '回答风格') {
+        currentSection = 'style';
+        if (rest) style += rest + ' ';
+      } else if (secKey === '指令') {
+        currentSection = 'commands';
+        if (rest) parseCommandLine(rest.replace(/^[·•*\-]\s*/, ''), commands);
+      } else if (secKey === '状态栏') {
+        currentSection = 'stats';
+        if (rest) parseStatLine(rest.replace(/^[·•*\-]\s*/, ''), stats);
+      } else {
+        currentSection = '';
+      }
+      continue;
+    }
+
+    // 非节标题行，按当前区块收集（统一剥离行首符号，避免污染解析）
+    const textLine = line.replace(/^[·•*\-]\s*/, '');
+    if (currentSection === 'rules') {
+      rules += textLine + '\n';
+    } else if (currentSection === 'style') {
+      style += textLine + ' ';
+    } else if (currentSection === 'commands') {
+      parseCommandLine(textLine, commands);
+    } else if (currentSection === 'stats') {
+      parseStatLine(textLine, stats);
+    }
+  }
+
+  if (!name) return null;   // 缺少 Mod 名 → 不合法
+
+  return {
+    id: 'mod_' + name,        // 用名称生成稳定 id
+    name,
+    version: version || '1.0',
+    rules: rules.trim(),
+    commands: commands.slice(0, 10),
+    stats: stats.slice(0, MAX_MOD_STATS),
+    style: style.trim(),
+  };
+}
+
+// 解析指令行：[名字]：说明 → commands.push({ name, prompt })
+function parseCommandLine(line, commands) {
+  const m = line.match(/\[(.+?)\]\s*[:：]?\s*(.*)/);
+  if (!m) return;
+  const btnName = m[1].trim();
+  if (!btnName) return;
+  // 忽略与基底固定按钮重复的（基底由另外的地方渲染，这里只收 Mod 新增）
+  const desc = m[2].trim();
+  commands.push({ name: btnName, prompt: desc });
+}
+
+// 解析状态栏行：数值型「名称：min-max=默认」/「名称：数字」；文本型「名称：初始文本」（非数字）
+function parseStatLine(line, stats) {
+  let m = line.match(/^(.+?)\s*[:：]\s*(\d+)\s*[-~]\s*(\d+)\s*(?:[=＝]\s*(\d+))?/);
+  let label, min, max, def;
+  if (m) {
+    label = m[1].trim();
+    min = parseInt(m[2], 10);
+    max = parseInt(m[3], 10);
+    def = m[4] !== undefined ? parseInt(m[4], 10) : Math.round((min + max) / 2);
+  } else {
+    // 兜底数值格式：名称：数字（视为 max）
+    m = line.match(/^(.+?)\s*[:：]\s*(\d+)/);
+    if (m) {
+      label = m[1].trim();
+      min = 0;
+      max = parseInt(m[2], 10);
+      def = Math.round(max / 2);
+    } else {
+      // 文本类型：名称：初始文本（或 名称=初始文本）
+      m = line.match(/^(.+?)\s*[:：=＝]\s*(.+)$/);
+      if (!m) return;
+      label = m[1].trim();
+      if (!label) return;
+      const textDefault = m[2].trim();
+      // 图标：用 Array.from 按码点取首字符（正确处理 emoji 代理对）
+      const chars = Array.from(label);
+      const firstIsEmoji = /^\p{Emoji}/u.test(chars[0]);
+      const icon = firstIsEmoji ? chars[0] : '⭐';
+      const cleanLabel = firstIsEmoji ? chars.slice(1).join('').trim() : label;
+      stats.push({
+        key: 'm_' + cleanLabel,
+        icon,
+        label: cleanLabel || label,
+        text: true,               // 文本类型标记
+        default: textDefault,     // 初始文本
+      });
+      return;
+    }
+  }
+  if (!label || max <= 0) return;
+  // 图标：用 Array.from 按码点取首字符（正确处理 emoji 代理对）
+  const chars = Array.from(label);
+  const firstIsEmoji = /^\p{Emoji}/u.test(chars[0]);
+  const icon = firstIsEmoji ? chars[0] : '⭐';
+  const cleanLabel = firstIsEmoji ? chars.slice(1).join('').trim() : label;
+  // key 用 m_ 前缀天然隔离基底状态键，无需保留字过滤
+  const key = 'm_' + cleanLabel;
+  stats.push({
+    key,
+    icon,
+    label: cleanLabel || label,
+    max,
+    default: Math.max(0, Math.min(max, def)),
+  });
+}
+
+// 读取所有 Mod 原始文本
+function loadMods() {
   try {
-    const raw = localStorage.getItem(STORE_KEYS.plugins);
+    const raw = localStorage.getItem(STORE_KEYS.mods);
     const arr = raw ? JSON.parse(raw) : [];
     return Array.isArray(arr) ? arr : [];
   } catch (e) { return []; }
 }
-function savePlugins(list) {
-  try { localStorage.setItem(STORE_KEYS.plugins, JSON.stringify(list)); } catch (e) {}
+function saveMods(list) {
+  try { localStorage.setItem(STORE_KEYS.mods, JSON.stringify(list)); } catch (e) {}
+}
+// 读取/写入某个 Mod 的启用状态
+const DEFAULT_ENABLED = { };
+function loadModEnabled() {
+  try {
+    const raw = localStorage.getItem(STORE_KEYS.modEnabled);
+    const obj = raw ? JSON.parse(raw) : {};
+    return obj && typeof obj === 'object' ? obj : {};
+  } catch (e) { return {}; }
+}
+function setModEnabled(id, enabled) {
+  const obj = loadModEnabled();
+  if (enabled) obj[id] = true;
+  else delete obj[id];
+  try { localStorage.setItem(STORE_KEYS.modEnabled, JSON.stringify(obj)); } catch (e) {}
+}
+function isModEnabled(id) {
+  return !!loadModEnabled()[id];
 }
 
-// 校验并规范化插件对象
-function normalizePlugin(p) {
-  if (!p || typeof p !== 'object') return null;
-  const id = String(p.id || '').trim();
-  if (!id) return null;
-  // 基础状态保留字：插件不得占用
-  const RESERVED = ['hp', 'food', 'water', 'temp', 'stamina', 'bored'];
-  const stats = Array.isArray(p.stats) ? p.stats.slice(0, MAX_PLUGIN_STATS).map((s) => {
-    const key = String(s.key || '').trim();
-    const max = (typeof s.max === 'number' && s.max > 0) ? s.max : 100;
-    const def = (typeof s.default === 'number') ? s.default : 50;
-    return {
-      key,
-      icon: String(s.icon || '⭐'),
-      label: String(s.label || key || '状态'),
-      max,
-      default: Math.max(0, Math.min(max, def)),   // 钳制到 [0, max]
-    };
-  }).filter((s) => s.key && RESERVED.indexOf(s.key) < 0) : [];
-  return {
-    id,
-    name: String(p.name || id),
-    version: String(p.version || '1.0'),
-    stats,
-    stylePrompt: String(p.stylePrompt || ''),
-    extraRules: String(p.extraRules || ''),
-  };
+// 规范化的启用 Mod 列表
+function activeMods() {
+  return loadMods().map(parseTxtMod).filter(Boolean).filter((m) => isModEnabled(m.id));
+}
+// 所有 Mod（含解析后对象）
+function allMods() {
+  return loadMods().map(parseTxtMod).filter(Boolean);
 }
 
-// 当前生效的插件（全部启用）
-function activePlugins() {
-  return loadPlugins().map(normalizePlugin).filter(Boolean);
-}
-
-// 插件注入系统提示词：风格 + 追加规则
-function buildPluginPrompt() {
-  const ps = activePlugins();
-  if (!ps.length) return '';
+// 把所有启用 Mod 的规则/风格合并成注入 AI 的文本
+function buildModPrompt() {
+  const mods = activeMods();
+  if (!mods.length) return '';
   const parts = [];
-  for (const p of ps) {
+  for (const m of mods) {
     const bits = [];
-    if (p.stylePrompt) bits.push('对话风格：' + p.stylePrompt);
-    if (p.extraRules) bits.push('追加规则：' + p.extraRules);
-    if (p.stats.length) {
-      bits.push('自定义状态项（与基础状态同等结算，增减量由你返回）：' +
-        p.stats.map((s) => s.icon + s.key + '(0-' + s.max + ')').join('、'));
+    if (m.style) bits.push('对话风格：' + m.style);
+    if (m.stats.length) {
+      const descs = m.stats.map((s) => {
+        if (s.text) {
+          return '"' + s.key + '"(' + s.icon + s.label + '，文本型，直接设置为字符串，如 "' + s.key + '": "杰出")';
+        }
+        return '"' + s.key + '"(表示 ' + s.icon + s.label + ', 0-' + s.max + '，增减量由你返回)';
+      });
+      bits.push('自定义状态项（stats 中须用如下 JSON key）：' + descs.join('、'));
     }
-    parts.push('【插件 ' + p.name + '】' + bits.join('；'));
+    if (m.commands.length) {
+      bits.push('可用指令：' + m.commands.map((c) => '[' + c.name + ']' + (c.prompt ? '（' + c.prompt + '）' : '')).join(' '));
+    }
+    parts.push('【Mod·' + m.name + '】' + (bits.length ? bits.join('；') : '') + (m.rules ? '\n' + m.rules.trim() : ''));
   }
-  return '\n---\n已加载插件规则（必须遵守）：\n' + parts.join('\n');
+  return '\n---\n已加载 Mod 规则（仅在其明确覆盖的领域生效，其余按基底规则）：\n' + parts.join('\n\n');
+}
+
+// 收集所有启用 Mod 的指令按钮（供指令栏渲染）
+function activeModCommands() {
+  const commands = [];
+  for (const m of activeMods()) {
+    for (const c of m.commands) {
+      if (!commands.some((x) => x.name === c.name)) commands.push(c);
+    }
+  }
+  return commands;
 }
 
 // ---------- 自定义壁纸 ----------
@@ -241,27 +400,25 @@ function newGameState() {
       events: [],        // 重要事件时间线（如"第3天：发现铜矿脉"）
       knowledge: [],     // 已学知识/配方/科技（如"学会用石斧劈柴"）
     },
-    map: [               // 文字版小地图（字符画网格）
-      '████████████████████',
-      '██················██',
-      '██···▓▓▓··········██',
-      '██···▓▓▓·····@····██',
-      '██················██',
-      '██·····░░·······M·██',
-      '████████████████████',
-    ],
-    mapLegend: '█ 墙壁  · 地面  ▓ 家具/障碍  ░ 水/危险  @ 你  M 出口',
+    home: [],            // 家中物品（存放在家里的物品清单）
+    savedPlaces: [],     // 已保存地点（可回头的地标）
     pluginStats: {},     // 插件自定义状态数值 { key: value }
   };
 }
 
-// 插件状态默认值初始化（导入插件或新游戏时补齐）
+// Mod 状态默认值初始化（启用 Mod 或新游戏时补齐）
 function ensurePluginStats(state) {
-  const ps = activePlugins();
+  const mods = activeMods();
   const target = state.pluginStats || (state.pluginStats = {});
-  for (const p of ps) {
-    for (const s of p.stats) {
-      if (typeof target[s.key] !== 'number') target[s.key] = s.default;
+  for (const m of mods) {
+    for (const s of m.stats) {
+      if (s.text) {
+        // 文本类型：默认值为字符串
+        if (typeof target[s.key] !== 'string') target[s.key] = s.default;
+      } else {
+        // 数值类型
+        if (typeof target[s.key] !== 'number') target[s.key] = s.default;
+      }
     }
   }
   return target;
@@ -285,16 +442,22 @@ function applyStats(s, deltas) {
   if (d.temp === '热' || d.temp === '温' || d.temp === '冷') s.stats.temp = d.temp;
   if (typeof d.stamina === 'number') s.stats.stamina = clamp(s.stats.stamina + d.stamina);
   if (typeof d.bored === 'number') s.stats.bored = clamp(s.stats.bored + d.bored);
-  // 插件自定义状态：按各插件声明的 max 钳制
-  const ps = activePlugins();
-  if (ps.length) {
+  // Mod 自定义状态：数值型按 max 钳制累加；文本型由 AI 直接设置字符串
+  const mods = activeMods();
+  if (mods.length) {
     const target = s.pluginStats || (s.pluginStats = {});
-    const keyMax = {};
-    for (const p of ps) for (const st of p.stats) keyMax[st.key] = st.max;
-    for (const key of Object.keys(keyMax)) {
-      if (typeof d[key] === 'number') {
+    const statDefs = {};
+    for (const m of mods) for (const st of m.stats) statDefs[st.key] = st;
+    for (const key of Object.keys(statDefs)) {
+      if (d[key] === undefined) continue;
+      const def = statDefs[key];
+      if (def.text) {
+        // 文本类型：直接设置（字符串）
+        if (typeof d[key] === 'string') target[key] = d[key];
+      } else if (typeof d[key] === 'number') {
+        // 数值类型：累加 + 钳制
         const base = typeof target[key] === 'number' ? target[key] : 0;
-        const max = keyMax[key];
+        const max = def.max;
         target[key] = Math.max(0, Math.min(max, Math.round(base + d[key])));
       }
     }
@@ -322,10 +485,12 @@ JSON 格式如下：
   "location": "当前位置（未变则省略）",
   "inventory_add": [],
   "inventory_remove": [],
+  "home_add": [],
+  "home_remove": [],
+  "place_save": [],
+  "place_remove": [],
   "memory_add": { "player": [], "world": [], "events": [], "knowledge": [] },
   "memory_remove": [],
-  "map": ["字符画小地图行1", "行2", "..."],
-  "map_legend": "图例说明（可选）",
   "death": false
 }
 
@@ -334,11 +499,9 @@ JSON 合法性与格式要求（违反会导致游戏崩溃）：
 - temp 只能是 热/温/冷 之一（字符串）。
 - 所有键必须用双引号；不能有尾逗号；不能有注释；不能用单引号。
 - 只列出发生变化或需要确认的字段，不要列出全部。
-- map：当玩家移动、探索新区域、场景明显变化时，输出【小地图】（数组，每行一个字符串）。规则：
-  · 必须保持与当前地图相同的行数与字符宽度（每行等宽，可用半角空格补位）
-  · 用 @ 标记玩家当前位置；█ 墙壁；· 地面；▓ 家具/障碍物；░ 水域/危险；M 出口/门；▲ 楼梯/洞；T 树/植被；其他大写字母可表示重要 NPC 或地标
-  · 未变化时省略该字段
-- map_legend：若自定义了符号，补充图例说明（可选）。
+- inventory_add/inventory_remove：背包物品的增减（字符串数组）。
+- home_add/home_remove：【家中物品】的增减——玩家把物品存放/取回家时使用（字符串数组）。
+- place_save/place_remove：【已保存地点】的保存/移除——玩家记录地标时使用（**字符串数组**，如 ["废弃矿洞"]）。
 - memory_add：把【值得长期记住】的状态/事件写入对应分类（每项一句话、≤25字）：
   · player：玩家持久状态（伤病、技能、身体变化），如"左手划伤未愈"
   · world：世界局势/NPC/地点，如"小镇东南有废弃矿洞"
@@ -365,7 +528,7 @@ async function loadRules() {
 }
 
 function buildSystemPrompt() {
-  return (rulesText || '（规则文件缺失）') + SYSTEM_TAIL + buildPluginPrompt();
+  return (rulesText || '（规则文件缺失）') + SYSTEM_TAIL + buildModPrompt();
 }
 
 // ---------- 游戏档案：把分类记忆格式化为文本 ----------
@@ -389,7 +552,10 @@ async function callAI(state, userText, extraLogs) {
     focus: state.focus,
     location: state.location,
     inventory: state.inventory,
+    home: state.home,             // 家中物品
+    savedPlaces: state.savedPlaces,  // 已保存地点
     stats: state.stats,
+    modStats: state.pluginStats || {},   // Mod 自定义状态当前值（AI 结算需知）
   });
   const memoryText = buildMemoryText(state);
 
@@ -569,19 +735,33 @@ function applyAIResult(state, parsed) {
     }
   }
 
-  // 小地图更新：AI 返回新地图时替换（需为字符串数组）
-  if (Array.isArray(parsed.map) && parsed.map.length) {
-    let rows = parsed.map.map((r) => (typeof r === 'string' ? r : ''));
-    // 过滤末尾空行，保留有效内容
-    while (rows.length && rows[rows.length - 1] === '') rows.pop();
-    // 等宽归一化：按最长行补空格对齐，避免参差错位
-    if (rows.length && rows.some((r) => r.length > 0)) {
-      const width = Math.max(...rows.map((r) => r.length));
-      state.map = rows.map((r) => r + ' '.repeat(width - r.length));
+  // 家中物品：增减
+  if (Array.isArray(parsed.home_add)) {
+    for (const raw of parsed.home_add) {
+      const it = typeof raw === 'string' ? raw.trim() : '';
+      if (it && state.home.indexOf(it) < 0) state.home.push(it);
     }
   }
-  if (typeof parsed.map_legend === 'string' && parsed.map_legend.trim()) {
-    state.mapLegend = parsed.map_legend.trim();
+  if (Array.isArray(parsed.home_remove)) {
+    for (const raw of parsed.home_remove) {
+      const it = typeof raw === 'string' ? raw.trim() : '';
+      const idx = state.home.indexOf(it);
+      if (idx >= 0) state.home.splice(idx, 1);
+    }
+  }
+  // 已保存地点：保存/移除
+  if (Array.isArray(parsed.place_save)) {
+    for (const raw of parsed.place_save) {
+      const it = typeof raw === 'string' ? raw.trim() : '';
+      if (it && state.savedPlaces.indexOf(it) < 0) state.savedPlaces.push(it);
+    }
+  }
+  if (Array.isArray(parsed.place_remove)) {
+    for (const raw of parsed.place_remove) {
+      const it = typeof raw === 'string' ? raw.trim() : '';
+      const idx = state.savedPlaces.indexOf(it);
+      if (idx >= 0) state.savedPlaces.splice(idx, 1);
+    }
   }
 
   if (parsed.death === true) state.death = true;
@@ -651,9 +831,9 @@ function parseSaveFile(text) {
     history: Array.isArray(state.history) ? state.history : [],
     // 游戏档案：兼容旧存档（无 memory 时给空档案）
     memory: Object.assign({ player: [], world: [], events: [], knowledge: [] }, state.memory || {}),
-    // 小地图：兼容旧存档（无 map 时用默认地图）
-    map: Array.isArray(state.map) && state.map.length ? state.map : newGameState().map,
-    mapLegend: typeof state.mapLegend === 'string' && state.mapLegend ? state.mapLegend : newGameState().mapLegend,
+    // 家中物品 / 已保存地点：兼容旧存档
+    home: Array.isArray(state.home) ? state.home : [],
+    savedPlaces: Array.isArray(state.savedPlaces) ? state.savedPlaces : [],
     // 插件状态：兼容旧存档
     pluginStats: (state.pluginStats && typeof state.pluginStats === 'object') ? state.pluginStats : {},
   };
@@ -665,6 +845,28 @@ const $ = (id) => document.getElementById(id);
 // 记录各状态项旧值，用于数值变化闪烁提示
 let _prevStats = {};
 
+// 动态合并 Mod 指令按钮到指令栏（基底按钮在 HTML 中保持不动）
+function renderModCommands() {
+  const container = $('cmdButtons');
+  if (!container) return;
+  // 移除旧的 Mod 按钮（class='cmd mod-command'），保留基底按钮
+  const old = container.querySelectorAll('.cmd.mod-command');
+  old.forEach((b) => b.remove());
+  const modBtns = activeModCommands();
+  if (!modBtns.length) return;
+  for (const c of modBtns) {
+    const label = '[' + c.name + ']';
+    // 若基底或其他 mod 已有同名按钮则跳过
+    if (container.querySelector('[data-cmd="' + label + '"]')) continue;
+    const b = document.createElement('button');
+    b.className = 'cmd mod-command';
+    b.setAttribute('data-cmd', label);
+    b.textContent = label;
+    b.addEventListener('click', () => sendCommand(label));
+    container.appendChild(b);
+  }
+}
+
 function renderStats(state) {
   const s = state.stats;
   const defs = [
@@ -675,14 +877,21 @@ function renderStats(state) {
     { key: 'stamina', label: '🏋️体力', color: '#9b59b6' },
     { key: 'bored', label: '🍽️厌倦', color: '#95a5a6' },
   ];
-  // 插件自定义状态项
+  // Mod 自定义状态项
   ensurePluginStats(state);
-  const ps = activePlugins();
+  const mods = activeMods();
   const pluginDefs = [];
-  if (ps.length) {
-    for (const p of ps) {
-      for (const st of p.stats) {
-        pluginDefs.push({ key: st.key, label: st.icon + st.label, color: '#2ecc71', max: st.max, plugin: true });
+  if (mods.length) {
+    for (const m of mods) {
+      for (const st of m.stats) {
+        pluginDefs.push({
+          key: st.key,
+          label: st.icon + st.label,
+          color: '#2ecc71',
+          max: st.max,
+          plugin: true,
+          text: !!st.text,
+        });
       }
     }
   }
@@ -695,14 +904,24 @@ function renderStats(state) {
     if (prev !== undefined && String(prev) !== String(cur)) flashes[key] = true;
     _prevStats[key] = cur;
   });
-  // 动态列数：基础 6 项 → 每多 2 项增一列（最多 4 列）。
-  // 仅列数 >6 时设内联（否则交给 CSS：桌面 6 列 / 移动端媒体查询 3 列）
-  const cols = all.length <= 6 ? 6 : (all.length <= 8 ? 8 : (all.length <= 10 ? 10 : 12));
+  // 动态列数：桌面端基础 6 列，每多 2 项增一列（最多 12）；移动端减半
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 640;
+  let cols = all.length <= 6 ? 6 : (all.length <= 8 ? 8 : (all.length <= 10 ? 10 : 12));
+  if (isMobile) cols = Math.max(3, Math.ceil(cols / 2));
   const barEl = $('statsBar');
-  if (all.length > 6) barEl.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
-  else barEl.style.gridTemplateColumns = '';
+  barEl.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
   barEl.innerHTML = all.map((d) => {
     let v, valText;
+    if (d.plugin && d.text) {
+      // 文本类型 Mod 状态：无进度条，直接显示文本
+      valText = state.pluginStats[d.key];
+      const cls = flashes[d.key] ? ' flash' : '';
+      const safeLabel = escapeHtml(d.label);
+      const safeVal = escapeHtml(String(valText));
+      return `<div class="stat">
+        <div class="label"><span>${safeLabel}</span><span class="val${cls}">${safeVal}</span></div>
+      </div>`;
+    }
     if (d.plugin) {
       v = (state.pluginStats[d.key] / d.max) * 100;
       valText = state.pluginStats[d.key];
@@ -759,24 +978,33 @@ function renderMemory(state) {
   if (cnt) cnt.textContent = `共 ${total} 条`;
 }
 
-function renderMap(state) {
-  const el = $('miniMap');
+function renderSidebar(state) {
+  const el = $('sidebarBody');
   if (!el) return;
-  const rows = Array.isArray(state.map) ? state.map : [];
-  el.textContent = rows.join('\n') || '（地图未知）';
-  const legendEl = $('mapLegend');
-  if (legendEl) {
-    legendEl.innerHTML = state.mapLegend
-      ? state.mapLegend.split('  ').filter(Boolean).map((s) => `<div class="lg-item">${escapeHtml(s)}</div>`).join('')
-      : '';
-  }
+  const inv = Array.isArray(state.inventory) ? state.inventory : [];
+  const home = Array.isArray(state.home) ? state.home : [];
+  const places = Array.isArray(state.savedPlaces) ? state.savedPlaces : [];
+
+  const sec = (title, items, emptyText) => `
+    <div class="sb-section">
+      <div class="sb-title">${title} <span class="sb-count">${items.length}</span></div>
+      ${items.length
+        ? '<ul class="sb-list">' + items.map((it) => `<li>${escapeHtml(it)}</li>`).join('') + '</ul>'
+        : `<div class="sb-empty">${emptyText}</div>`}
+    </div>`;
+
+  el.innerHTML =
+    sec('🎒 背包', inv, '空空如也') +
+    sec('🏠 家中物品', home, '没有存放物品') +
+    sec('📍 已保存地点', places, '尚未保存地点');
 }
 
 function renderAll(state) {
   renderBanner(state);
   renderStats(state);
   renderMemory(state);
-  renderMap(state);
+  renderSidebar(state);
+  renderModCommands(state);
   renderLog(state);
   autosave(state);
 }
@@ -873,7 +1101,7 @@ async function sendCommand(text) {
 
 // ---------- 事件绑定 ----------
 function init() {
-  // 侧边栏（小地图）展开/收起
+  // 侧边栏（物资）展开/收起
   const sidebar = $('sidebar');
   const toggleBtn = $('btnSidebarToggle');
   if (sidebar && toggleBtn) {
@@ -892,8 +1120,8 @@ function init() {
     });
   }
 
-  // 指令按钮
-  document.querySelectorAll('.cmd').forEach((btn) => {
+  // 指令按钮（只绑基底按钮；Mod 按钮由 renderModCommands 单独绑定，避免双重监听）
+  document.querySelectorAll('#cmdButtons .cmd:not(.mod-command)').forEach((btn) => {
     btn.addEventListener('click', () => {
       const c = btn.dataset.cmd;
       if (c === '[其他]') {
@@ -1074,42 +1302,62 @@ function init() {
     });
   }
 
-  // 插件：列表渲染
+  // Mod：列表渲染（含启用开关 + 删除）
   const pluginListEl = $('pluginList');
   function renderPluginList() {
     if (!pluginListEl) return;
-    const ps = loadPlugins().map(normalizePlugin).filter(Boolean);
-    if (!ps.length) {
-      pluginListEl.innerHTML = '<div class="plugin-empty">尚未导入插件</div>';
+    const mods = allMods();
+    if (!mods.length) {
+      pluginListEl.innerHTML = '<div class="plugin-empty">尚未导入 Mod</div>';
       return;
     }
-    pluginListEl.innerHTML = ps.map((p) => `
+    pluginListEl.innerHTML = mods.map((m) => {
+      const enabled = isModEnabled(m.id);
+      return `
       <div class="plugin-item">
-        <span class="p-name">${escapeHtml(p.name)}</span>
-        <span class="p-meta">v${escapeHtml(p.version)} · ${p.stats.length}状态项</span>
-        <button data-del="${escapeHtml(p.id)}">删除</button>
-      </div>`).join('');
+        <label class="plugin-toggle">
+          <input type="checkbox" data-id="${escapeHtml(m.id)}" ${enabled ? 'checked' : ''}>
+          <span class="p-name">${escapeHtml(m.name)}</span>
+        </label>
+        <span class="p-meta">v${escapeHtml(m.version)} · ${m.stats.length}状态 · ${m.commands.length}指令</span>
+        <button data-del="${escapeHtml(m.id)}">删除</button>
+      </div>`;
+    }).join('');
+
+    // 启用开关
+    pluginListEl.querySelectorAll('input[data-id]').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        const id = cb.getAttribute('data-id');
+        setModEnabled(id, cb.checked);
+        renderAll(G);
+        if (cb.checked) toast('Mod 已启用');
+        else toast('Mod 已禁用');
+      });
+    });
     // 删除按钮
     pluginListEl.querySelectorAll('[data-del]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-del');
-        const removed = loadPlugins().find((p) => String(p.id) === id);
-        const ps2 = loadPlugins().filter((p) => String(p.id) !== id);
-        savePlugins(ps2);
-        // 清理该插件对应状态数值
-        if (removed && G.pluginStats) {
-          const removedKeys = (removed.stats || []).map((s) => s.key);
-          for (const k of removedKeys) delete G.pluginStats[k];
+        const removed = allMods().find((m) => m.id === id);
+        const mods2 = loadMods().filter((raw) => {
+          const parsed = parseTxtMod(raw);
+          return parsed && parsed.id !== id;
+        });
+        saveMods(mods2);
+        // 清理该 Mod 对应状态数值 + 启用标记
+        if (removed && removed.stats && G.pluginStats) {
+          for (const s of removed.stats) delete G.pluginStats[s.key];
         }
+        setModEnabled(id, false);
         renderPluginList();
         renderAll(G);
-        toast('插件已删除');
+        toast('Mod 已删除');
       });
     });
   }
   renderPluginList();
 
-  // 插件：导入
+  // Mod：导入 TXT
   $('btnPluginImport').addEventListener('click', () => $('pluginFile').click());
   $('pluginFile').addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -1117,48 +1365,44 @@ function init() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const p = normalizePlugin(JSON.parse(String(reader.result)));
-        if (!p) throw new Error('插件格式无效');
-        const list = loadPlugins();
+        const text = String(reader.result);
+        const m = parseTxtMod(text);
+        if (!m) throw new Error('Mod 格式无效（缺少【Mod名】？）');
+        const list = loadMods();
         // 同 id 覆盖
-        const idx = list.findIndex((x) => String(x.id) === p.id);
-        if (idx >= 0) list[idx] = p;
-        else list.push(p);
-        savePlugins(list);
+        const idx = list.findIndex((x) => {
+          const parsed = parseTxtMod(x);
+          return parsed && parsed.id === m.id;
+        });
+        const rawText = text.trim();
+        if (idx >= 0) list[idx] = rawText;
+        else list.push(rawText);
+        saveMods(list);
+        setModEnabled(m.id, true);   // 新导入默认启用
         renderPluginList();
         ensurePluginStats(G);
         renderAll(G);
-        toast('插件已导入：' + p.name);
+        toast('Mod 已导入并启用：' + m.name);
       } catch (err) {
-        toast('插件导入失败：' + err.message);
+        toast('Mod 导入失败：' + err.message);
       }
     };
     reader.readAsText(file);
     e.target.value = '';
   });
 
-  // 插件：示例格式
+  // Mod：示例格式（下载）
   $('btnPluginExample').addEventListener('click', () => {
-    const example = {
-      id: 'example-mod',
-      name: '示例插件',
-      version: '1.0',
-      stats: [
-        { key: 'sanity', icon: '🧠', label: '理智', max: 100, default: 80 },
-        { key: 'luck', icon: '🍀', label: '运气', max: 50, default: 25 },
-      ],
-      stylePrompt: '你的描写要更注重心理氛围和情绪。',
-      extraRules: '新增规则：当理智低于 30 时，玩家会出现幻觉，行动可能失败。',
-    };
-    const blob = new Blob([JSON.stringify(example, null, 2)], { type: 'application/json' });
+    const exampleTxt = `${'【Mod名】示例Mod\n【版本】v1.0\n【规则】\n· 这是示例 Mod 的世界观与规则说明。\n· 新增规则：当理智低于 30 时，玩家会出现幻觉，行动可能失败。\n【指令】\n· [喝茶]：提供微量食物厌倦缓解（示例指令）\n【状态栏】\n· 🧠理智：0-100=80\n· 🍀运气：0-50=25\n· 🏅资质：平庸（文本型，AI直接设置文字）\n【回答风格】\n· 你的描写要更注重心理氛围和情绪。'}`;
+    const blob = new Blob([exampleTxt], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'example_plugin.json';
+    a.download = '示例Mod.txt';
     a.rel = 'noopener';
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 100);
-    toast('已下载示例插件');
+    toast('已下载示例 Mod');
   });
 
   $('btnApiCancel').addEventListener('click', () => ($('settingsModal').style.display = 'none'));

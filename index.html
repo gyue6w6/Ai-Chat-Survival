@@ -57,16 +57,13 @@
       </footer>
     </div>
 
-    <!-- 右侧侧边栏：文字版小地图 -->
+    <!-- 右侧侧边栏：背包 / 家中物品 / 已保存地点 -->
     <aside id="sidebar">
       <div id="sidebarHeader">
-        <span>🗺️ 小地图</span>
+        <span>📦 物资</span>
         <button id="btnSidebarToggle" title="展开/收起">◀</button>
       </div>
-      <div id="sidebarBody">
-        <pre id="miniMap"></pre>
-        <div id="mapLegend"></div>
-      </div>
+      <div id="sidebarBody"></div>
     </aside>
   </div>
 </div>
@@ -116,14 +113,14 @@
       <div class="hint">壁纸与调节只保存在你的浏览器中；模糊+明暗让文字更清晰。</div>
     </fieldset>
 
-    <!-- 自定义规则插件 -->
+    <!-- 自定义 Mod -->
     <fieldset id="pluginSection">
-      <legend>🧩 自定义插件</legend>
-      <input type="file" id="pluginFile" accept=".json">
-      <button id="btnPluginImport">导入插件 (.json)</button>
-      <button id="btnPluginExample">查看插件格式</button>
+      <legend>🧩 自定义 Mod</legend>
+      <input type="file" id="pluginFile" accept=".txt,.text">
+      <button id="btnPluginImport">导入 Mod (.txt)</button>
+      <button id="btnPluginExample">查看 Mod 格式</button>
       <div id="pluginList" class="plugin-list"></div>
-      <div class="hint">插件可自定义状态栏、对话风格、追加规则（完整状态结算）。</div>
+      <div class="hint">Mod 用记事本即可编写：可自定义状态栏、新增指令按钮、回答风格、追加规则（完整状态结算）。</div>
     </fieldset>
 
     <div class="modal-btns">
