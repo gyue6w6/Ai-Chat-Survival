@@ -1183,8 +1183,11 @@ function init() {
         toast('导入失败：' + err.message + '（请确认选择的是「保存存档」导出的 .json 文件）');
       }
     };
+    reader.onerror = () => {
+      toast('存档文件读取失败，请重试');
+    };
+    reader.onloadend = () => { e.target.value = ''; };
     reader.readAsText(file);
-    e.target.value = '';
   });
 
   // 重新载入规则
@@ -1270,7 +1273,7 @@ function init() {
     } catch (err) {
       toast('壁纸上传失败：' + err.message);
     }
-    e.target.value = '';
+    setTimeout(() => { e.target.value = ''; }, 0);
   });
   // 壁纸：清除
   $('btnWallpaperClear').addEventListener('click', () => {
@@ -1387,8 +1390,12 @@ function init() {
         toast('Mod 导入失败：' + err.message);
       }
     };
+    reader.onerror = () => {
+      toast('Mod 文件读取失败，请重试');
+    };
+    // 读取完成后再重置 input，避免 iOS 中断读取
+    reader.onloadend = () => { e.target.value = ''; };
     reader.readAsText(file);
-    e.target.value = '';
   });
 
   // Mod：示例格式（下载）
