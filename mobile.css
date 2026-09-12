@@ -1,0 +1,528 @@
+/* ============================================================
+   mobile.css — 移动端专属样式
+   只在手机/平板（最大宽度 768px）生效
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+    /* ========== 全局 ========== */
+    html, body {
+        height: 100%;
+        overflow: hidden;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+        padding: 0;
+        background: #000;
+        min-height: 100dvh;
+    }
+
+    /* ========== 手机外框：全屏显示 ========== */
+    .phone-frame {
+        max-width: 100%;
+        width: 100%;
+        height: 100dvh;
+        aspect-ratio: auto;
+        border-radius: 0;
+        box-shadow: none;
+        background: #000;
+    }
+
+    .screen {
+        border-radius: 0;
+        width: 100%;
+        height: 100dvh;
+    }
+
+    /* ========== 加载动画 ========== */
+    .splash-icon {
+        width: 100px;
+        height: 100px;
+    }
+
+    .splash-sub {
+        font-size: 1.3rem;
+    }
+
+    /* ========== 主界面 ========== */
+    .title-area {
+        margin-top: 18%;
+    }
+
+    .earth-char,
+    .online-text {
+        font-size: 2.5rem;
+        letter-spacing: 3px;
+    }
+
+    .game-btn {
+        width: 70%;
+        padding: 12px 0;
+        font-size: 1rem;
+        /* 触摸反馈 */
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .footer-credit {
+        right: 14px;
+        bottom: calc(14px + env(safe-area-inset-bottom));
+    }
+
+    /* ========== 存档界面 ========== */
+    .save-layer {
+        padding: 0 14px;
+    }
+
+    .save-title {
+        font-size: 1.7rem;
+        letter-spacing: 6px;
+    }
+
+    .save-back-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 1.1rem;
+        top: calc(20px + env(safe-area-inset-top));
+    }
+
+    .save-header {
+        padding-top: calc(20px + env(safe-area-inset-top));
+    }
+
+    .save-card-conv {
+        min-height: 60px;
+        font-size: 0.9rem;
+    }
+
+    .save-card-conv .conv-diff {
+        font-size: 0.6rem;
+    }
+
+    .save-bottom-bar {
+        padding: 14px 0 calc(14px + env(safe-area-inset-bottom));
+    }
+
+    .save-add-circle {
+        width: 46px;
+        height: 46px;
+        font-size: 1.5rem;
+    }
+
+    /* ========== 对话框 ========== */
+    .dialog-layer {
+        padding: 0 12px;
+    }
+
+    .dialog-header {
+        padding-top: calc(16px + env(safe-area-inset-top));
+        padding-bottom: 8px;
+    }
+
+    .dialog-back-btn {
+        width: 34px;
+        height: 34px;
+        font-size: 1rem;
+        top: calc(16px + env(safe-area-inset-top));
+    }
+
+    .dialog-title {
+        font-size: 1.3rem;
+        letter-spacing: 4px;
+    }
+
+    .dialog-info {
+        font-size: 0.6rem;
+        padding-bottom: 6px;
+    }
+
+    .dialog-log {
+        padding: 4px 0 6px 0;
+        gap: 8px;
+    }
+
+    .dialog-msg {
+        font-size: 0.85rem;
+        padding: 9px 12px;
+        line-height: 1.6;
+    }
+
+    /* ========== 底部区域 ========== */
+    .dialog-footer {
+        padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    }
+
+    /* 状态栏 */
+    .dialog-stats {
+        gap: 4px;
+        padding-bottom: 6px;
+    }
+
+    .stat-item {
+        padding: 5px 6px;
+    }
+
+    .stat-label {
+        font-size: 0.58rem;
+    }
+
+    .stat-value {
+        font-size: 0.65rem;
+    }
+
+    /* 输入框：16px 防 iOS 自动缩放 */
+    .dialog-input-row {
+        gap: 8px;
+    }
+
+    .dialog-input {
+        font-size: 16px;
+        padding: 10px 14px;
+        border-radius: 22px;
+    }
+
+    .dialog-send-btn {
+        width: 42px;
+        height: 42px;
+        font-size: 1.2rem;
+    }
+
+    /* 指令按钮：手指更容易点 */
+    .dialog-cmd-scroll {
+        margin: 0 -12px;
+        padding: 0 12px;
+    }
+
+    .dialog-cmd-buttons {
+        gap: 8px;
+    }
+
+    .dialog-cmd-btn {
+        font-size: 0.78rem;
+        padding: 9px 14px;
+        min-width: 68px;
+        border-radius: 10px;
+    }
+
+    /* ========== 展开面板 ========== */
+    .expand-panel.open {
+        max-height: 55dvh;
+    }
+
+    /* 日记 */
+    .diary-nav-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+    }
+
+    .diary-day-label {
+        font-size: 0.9rem;
+    }
+
+    .diary-content {
+        font-size: 0.8rem;
+        min-height: 90px;
+        max-height: 28dvh;
+        line-height: 1.7;
+    }
+
+    .diary-page-num {
+        font-size: 0.68rem;
+    }
+
+    /* 地图 */
+    .map-area {
+        aspect-ratio: 1 / 0.9;
+        touch-action: none;  /* 防止拖动触发页面滚动 */
+    }
+
+    .map-zoom-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 1rem;
+    }
+
+    .map-scale-bar {
+        width: 48px;
+    }
+
+    .map-scale-text {
+        font-size: 0.58rem;
+    }
+
+    .map-point-label {
+        font-size: 0.6rem;
+    }
+
+    /* 背包 */
+    .bag-list {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        max-height: 32dvh;
+    }
+
+    .bag-card {
+        padding: 8px 5px;
+        gap: 4px;
+        border-radius: 10px;
+    }
+
+    .bag-card-icon {
+        font-size: 1.3rem;
+    }
+
+    .bag-card-name {
+        font-size: 0.68rem;
+    }
+
+    .bag-card-count {
+        font-size: 0.6rem;
+    }
+
+    .bag-current {
+        font-size: 0.72rem;
+        padding: 5px 10px;
+    }
+
+    /* ========== 弹窗（含安全区 + 最大高度） ========== */
+    .wizard-box,
+    .edit-box,
+    .edit-select-box,
+    .settings-box,
+    .record-box,
+    .pickup-box,
+    .item-action-box,
+    .action-box {
+        width: 88%;
+        max-width: 320px;
+        max-height: 82dvh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 20px 18px;
+    }
+
+    /* 弹窗按钮：手指更容易点 */
+    .wizard-btn,
+    .edit-btn,
+    .record-btn,
+    .pickup-btn,
+    .item-action-btn,
+    .action-btn,
+    .settings-btn {
+        padding: 12px 0;
+        font-size: 0.9rem;
+    }
+
+    /* 选择项 */
+    .wizard-option {
+        padding: 12px 16px;
+    }
+
+    .wizard-option .opt-name {
+        font-size: 0.95rem;
+    }
+
+    .wizard-option .opt-desc {
+        font-size: 0.72rem;
+    }
+
+    .edit-option {
+        padding: 10px 6px;
+        font-size: 0.78rem;
+    }
+
+    .edit-select-item {
+        padding: 12px 16px;
+        font-size: 0.9rem;
+    }
+
+    .pickup-item {
+        padding: 12px 16px;
+        font-size: 0.9rem;
+    }
+
+    /* 输入框防缩放 */
+    .wizard-input,
+    .edit-input,
+    .record-input,
+    .settings-input {
+        font-size: 16px;
+        padding: 11px 14px;
+    }
+
+    /* 记录弹窗 */
+    .record-pos {
+        font-size: 0.78rem;
+    }
+
+    .record-check {
+        font-size: 0.78rem;
+    }
+
+    .record-check input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+    }
+
+    /* 设置弹窗 */
+    .settings-label {
+        font-size: 0.75rem;
+    }
+
+    .settings-hint {
+        font-size: 0.68rem;
+    }
+
+    /* ========== 序章 ========== */
+    .prologue-text {
+        padding: 40px 22px;
+    }
+
+    .prologue-day {
+        font-size: 1.2rem;
+        letter-spacing: 4px;
+        margin-bottom: 14px;
+    }
+
+    .prologue-body {
+        font-size: 1rem;
+        line-height: 1.9;
+    }
+
+    .prologue-end-sub {
+        font-size: 0.8rem;
+        line-height: 1.9;
+    }
+
+    .prologue-end-btn {
+        padding: 12px 36px;
+        font-size: 0.9rem;
+    }
+
+    .prologue-skip {
+        font-size: 0.7rem;
+        bottom: calc(24px + env(safe-area-inset-bottom));
+    }
+
+    /* ========== 游戏介绍 ========== */
+    .intro-layer {
+        padding: 0 18px;
+    }
+
+    .intro-header {
+        padding-top: calc(20px + env(safe-area-inset-top));
+    }
+
+    .intro-back-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 1.1rem;
+        top: calc(20px + env(safe-area-inset-top));
+    }
+
+    .intro-title {
+        font-size: 1.5rem;
+        letter-spacing: 6px;
+    }
+
+    .intro-section-title {
+        font-size: 1rem;
+    }
+
+    .intro-section-body {
+        font-size: 0.88rem;
+        line-height: 1.9;
+    }
+
+    /* ========== 触摸优化 ========== */
+    button,
+    .bag-card,
+    .save-card,
+    .edit-select-item,
+    .pickup-item,
+    .wizard-option {
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+
+    /* 禁用长按选中文本（背包长按用） */
+    .bag-card {
+        -webkit-user-select: none;
+        user-select: none;
+    }
+}
+
+/* ============================================================
+   极窄屏（<=360px）：再缩一档
+   ============================================================ */
+@media (max-width: 360px) {
+
+    .earth-char,
+    .online-text {
+        font-size: 2.2rem;
+    }
+
+    .dialog-cmd-btn {
+        font-size: 0.72rem;
+        padding: 8px 10px;
+        min-width: 58px;
+    }
+
+    .dialog-msg {
+        font-size: 0.8rem;
+    }
+
+    .bag-card-name {
+        font-size: 0.62rem;
+    }
+
+    .diary-content {
+        font-size: 0.74rem;
+    }
+
+    .wizard-box,
+    .edit-box,
+    .settings-box,
+    .record-box {
+        width: 92%;
+        padding: 16px 14px;
+    }
+}
+
+/* ============================================================
+   横屏：压缩高度
+   ============================================================ */
+@media (max-width: 900px) and (orientation: landscape) {
+
+    .dialog-info {
+        display: none;  /* 横屏空间小，隐藏信息栏 */
+    }
+
+    .dialog-stats {
+        padding-bottom: 4px;
+    }
+
+    .dialog-msg {
+        font-size: 0.78rem;
+        padding: 6px 10px;
+    }
+
+    .dialog-input {
+        padding: 8px 12px;
+    }
+
+    .dialog-send-btn {
+        width: 36px;
+        height: 36px;
+    }
+
+    .dialog-cmd-btn {
+        padding: 6px 10px;
+        font-size: 0.72rem;
+    }
+
+    .expand-panel.open {
+        max-height: 60dvh;
+    }
+}
