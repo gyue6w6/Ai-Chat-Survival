@@ -1,174 +1,428 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI 生存游戏</title>
-<link rel="stylesheet" href="themes.css">
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>地球Online · 新对话</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="mobile.css">
 </head>
-<body data-theme="dark">
-<div id="app">
-  <!-- 顶部：标题 + 操作按钮 -->
-  <header>
-    <h1>AI 生存游戏</h1>
-    <div class="toolbar">
-      <button id="btnNew">新建游戏</button>
-      <button id="btnSave">保存存档</button>
-      <button id="btnImport">导入存档</button>
-      <input type="file" id="importFile" accept=".json">
-      <button id="btnReloadRules">重新载入规则</button>
-      <button id="btnSettings" onclick="(function(){
-        try{
-          var modal=document.getElementById('settingsModal');
-          if(!modal){alert('设置弹窗加载失败');return;}
-          var sel=document.getElementById('providerSelect');
-          var themeSel=document.getElementById('themeSelect');
-          var customFields=document.getElementById('customFields');
-          var keyLabel=document.getElementById('keyLabel');
-          var keyInput=document.getElementById('apiKeyInput');
-          var hintEl=document.getElementById('apiKeyHint');
-          var urlInput=document.getElementById('customUrlInput');
-          var modelInput=document.getElementById('customModelInput');
-          var id='deepseek';
-          try{id=localStorage.getItem('survival_provider')||'deepseek';}catch(e){}
-          if(sel)sel.value=id;
-          if(themeSel){var t='dark';try{t=localStorage.getItem('survival_theme')||'dark';}catch(e){}themeSel.value=t;}
-          if(customFields)customFields.style.display=(id==='custom')?'flex':'none';
-          if(id==='custom'){
-            if(urlInput){try{urlInput.value=localStorage.getItem('survival_custom_url')||'';}catch(e){}}
-            if(modelInput){try{modelInput.value=localStorage.getItem('survival_custom_model')||'';}catch(e){}}
-          }
-          var labels={deepseek:'DeepSeek',glm:'智谱 GLM（免费）',qwen:'通义千问（便宜）',custom:'自定义'};
-          if(keyLabel)keyLabel.textContent=(id==='custom'?'自定义':(labels[id]||''))+' API Key';
-          if(keyInput){keyInput.value='';var sk='';try{sk=localStorage.getItem('survival_key_'+id)||'';}catch(e){}if(sk)keyInput.value='（已保存，留空则不修改）';}
-          if(hintEl){
-            if(id==='custom'){hintEl.textContent='自定义：填写任意 OpenAI 兼容接口地址、模型名和 API Key。';}
-            else{var hasKey=false;try{hasKey=!!localStorage.getItem('survival_key_'+id);}catch(e){}hintEl.textContent=hasKey?'该服务商 Key 已保存在浏览器（留空则不修改）。':'请输入你的 '+(labels[id]||id)+' API Key（只存本浏览器）。';}
-          }
-          modal.style.display='flex';
-        }catch(err){
-          alert('打开设置失败: '+err.message);
-        }
-      })()">设置</button>
-    </div>
-  </header>
+<body>
+    <div class="phone-frame">
+        <div class="screen" id="gameScreen">
+            <!-- 1. 加载动画层 -->
+            <div class="layer splash-layer" id="splashLayer">
+                <div class="icon-wrapper">
+                    <img class="splash-icon" src="EpicFace.png" alt="地球">
+                </div>
+                <div class="splash-sub" id="splashText"></div>
+            </div>
 
-  <!-- 主内容列 + 右侧侧边栏 -->
-  <div id="bodyRow">
-    <div id="mainCol">
-      <!-- 日期/灾日 + 六属性状态栏（合并一行） -->
-      <div id="statusRow">
-        <div id="dayBanner">0天 灾日(正常)</div>
-        <div id="statsBar"></div>
-      </div>
+            <!-- 2. 主界面层 -->
+            <div class="layer main-layer" id="mainLayer">
+                <div class="meteor-layer">
+                    <div class="meteor"></div>
+                    <div class="meteor"></div>
+                    <div class="meteor"></div>
+                    <div class="meteor"></div>
+                    <div class="meteor"></div>
+                    <div class="meteor"></div>
+                    <div class="meteor"></div>
+                    <div class="meteor"></div>
+                    <div class="meteor"></div>
+                    <div class="meteor"></div>
+                    <div class="meteor"></div>
+                    <div class="meteor"></div>
+                </div>
 
-      <!-- 游戏档案（可折叠：自动分类的长期记忆） -->
-      <details id="memoryPanel">
-        <summary>📋 游戏档案 <span id="memoryCount"></span></summary>
-        <div id="memoryContent"></div>
-      </details>
+                <div class="star-field" id="starField"></div>
+                <div class="glow-arc"></div>
+                <div class="mountain-far"></div>
 
-      <!-- 环境/动作结果区（滚动对话流） -->
-      <main id="log"></main>
+                <div class="mountain-near">
+                    <div class="peak peak-back"></div>
+                    <div class="peak peak-back"></div>
+                    <div class="peak peak-back"></div>
+                    <div class="peak peak-back"></div>
+                    <div class="peak peak-back"></div>
+                    <div class="peak peak-front"></div>
+                    <div class="peak peak-front"></div>
+                    <div class="peak peak-front"></div>
+                    <div class="peak peak-front"></div>
+                    <div class="peak peak-front"></div>
+                    <div class="peak peak-front"></div>
+                    <div class="peak peak-front"></div>
+                    <div class="peak peak-front"></div>
+                </div>
 
-      <!-- 固定指令区 -->
-      <footer>
-        <div id="cmdButtons">
-          <button class="cmd" data-cmd="[探索]">[探索]</button>
-          <button class="cmd" data-cmd="[思索]">[思索]</button>
-          <button class="cmd" data-cmd="[专注]">[专注]</button>
-          <button class="cmd" data-cmd="[休息]">[休息]</button>
-          <button class="cmd" data-cmd="[睡觉]">[睡觉]</button>
-          <button class="cmd" data-cmd="[其他]">[其他]</button>
+                <div class="main-content">
+                    <div class="title-area">
+                        <div class="title-main" id="titleMain">
+                            <span class="earth-char">地球</span>
+                            <span class="online-text">Online</span>
+                        </div>
+                        <div class="subtitle">（文字版）</div>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="game-btn" type="button" id="startBtn">开始对话</button>
+                        <button class="game-btn" type="button" id="settingsBtn">设置</button>
+                        <button class="game-btn" type="button" id="introBtn">游戏介绍</button>
+                    </div>
+
+                    <div class="footer-credit">BY LJY</div>
+                </div>
+            </div>
+
+            <!-- 3. 序章层 -->
+            <div class="layer prologue-layer" id="prologueLayer">
+                <div class="prologue-text" id="prologueText">
+                    <div class="prologue-day" id="prologueDay"></div>
+                    <div class="prologue-body" id="prologueBody"></div>
+                </div>
+                <div class="prologue-skip" id="prologueSkip">点击跳过</div>
+                <div class="prologue-end" id="prologueEnd">
+                    <div class="prologue-end-sub">本日记来自<br>游戏前身及附属模组《孤独》&《天末灾日》</div>
+                    <button class="prologue-end-btn" id="prologueBackBtn" type="button">返回</button>
+                </div>
+            </div>
+
+            <!-- 4. 游戏介绍层 -->
+            <div class="layer intro-layer" id="introLayer">
+                <div class="intro-header">
+                    <button class="intro-back-btn" id="introBackBtn" type="button" aria-label="返回">←</button>
+                    <span class="intro-title">游戏介绍</span>
+                </div>
+                <div class="intro-scroll" id="introScroll">
+                    <div class="intro-section">
+                        <div class="intro-section-title">本游戏原理</div>
+                        <div class="intro-section-body">
+                            AI根据 玩家的回答 与 现实规则 和 模组规则 推演结果<br>
+                            因此该游戏具有较高自由度 但目前受限于文本
+                        </div>
+                    </div>
+
+                    <div class="intro-section">
+                        <div class="intro-section-title">游玩方式</div>
+                        <div class="intro-section-body">
+                            （以下游玩方式仅为参考和建议，其他玩法等你挖掘）<br><br>
+                            <b>举例：原始生存</b><br>
+                            · <b>工业发展</b>：玩家可利用身边的材料，由石器 → 陶器/高炉 → 农业/畜牧 → 水能/风能 → 蒸汽/电力 → 化工 → 信息/AI 等等<br>
+                            · <b>社会治理</b>：制定法律，统一货币，发展教育医疗，防范自然灾害等等
+                        </div>
+                    </div>
+
+                    <div class="intro-section">
+                        <div class="intro-section-title">模组</div>
+                        <div class="intro-section-body">
+                            并且由于模组的拓展 衍生玩法较多 如：<br>
+                            玩家可自定义规则/世界观/状态栏/行动栏 如 修仙、蛊真人、科幻、三体
+                        </div>
+                    </div>
+
+                    <div class="intro-section">
+                        <div class="intro-section-title">本游戏附属模组有</div>
+                        <div class="intro-section-body">
+                            <b>硬核类</b><br>
+                            《后室Φ:缸中之脑》《Lonely》<br><br>
+                            <b>趣味类</b><br>
+                            《动物"视"界》等...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. 存档界面层 -->
+            <div class="layer save-layer" id="saveLayer">
+                <div class="save-glow"></div>
+
+                <div class="save-header">
+                    <button class="save-back-btn" id="saveBackBtn" type="button" aria-label="返回">←</button>
+                    <span class="save-title">存档</span>
+                </div>
+
+                <div class="save-card-list" id="saveCardList"></div>
+
+                <div class="save-bottom-bar">
+                    <button class="save-add-circle" id="saveAddCircle" type="button" aria-label="新建或编辑">+</button>
+                </div>
+            </div>
+
+            <!-- 6. 新建/编辑 选择弹窗 -->
+            <div class="action-overlay" id="actionOverlay">
+                <div class="action-box">
+                    <button class="action-btn action-btn-new" id="actionNewBtn" type="button">新建对话</button>
+                    <button class="action-btn action-btn-edit" id="actionEditBtn" type="button">编辑对话</button>
+                    <button class="action-btn action-btn-cancel" id="actionCancelBtn" type="button">取消</button>
+                </div>
+            </div>
+
+            <!-- 7. 编辑对话选择弹窗 -->
+            <div class="edit-select-overlay" id="editSelectOverlay">
+                <div class="edit-select-box">
+                    <div class="edit-select-title">选择要编辑的对话</div>
+                    <div class="edit-select-list" id="editSelectList"></div>
+                    <div class="edit-select-btns">
+                        <button class="wizard-btn wizard-btn-cancel" id="editSelectCancel" type="button">取消</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 8. 创建对话多步弹窗 -->
+            <div class="wizard-overlay" id="wizardOverlay">
+                <div class="wizard-box">
+                    <div class="wizard-step" id="wizardStepName">
+                        <div class="wizard-title">对话名称</div>
+                        <input type="text" class="wizard-input" id="wizardNameInput" placeholder="请输入名称" maxlength="20" autocomplete="off">
+                        <div class="wizard-btns">
+                            <button class="wizard-btn wizard-btn-cancel" id="wizardNameCancel" type="button">取消</button>
+                            <button class="wizard-btn wizard-btn-ok" id="wizardNameNext" type="button">下一步</button>
+                        </div>
+                    </div>
+
+                    <div class="wizard-step" id="wizardStepDiff" style="display:none">
+                        <div class="wizard-title">选择难度</div>
+                        <div class="wizard-options" id="wizardDiffOptions">
+                            <button class="wizard-option" data-value="easy" type="button">
+                                <span class="opt-name">Easy</span>
+                                <span class="opt-desc">回答约 70% 符合预期</span>
+                            </button>
+                            <button class="wizard-option" data-value="normal" type="button">
+                                <span class="opt-name">Normal</span>
+                                <span class="opt-desc">回答约 50% 符合预期</span>
+                            </button>
+                            <button class="wizard-option" data-value="hard" type="button">
+                                <span class="opt-name">Hard</span>
+                                <span class="opt-desc">回答约 30% 符合预期</span>
+                            </button>
+                            <button class="wizard-option" data-value="hardcore" type="button">
+                                <span class="opt-name">Hardcore</span>
+                                <span class="opt-desc">回答约 20% 符合预期</span>
+                            </button>
+                        </div>
+                        <div class="wizard-btns">
+                            <button class="wizard-btn wizard-btn-cancel" id="wizardDiffBack" type="button">上一步</button>
+                            <button class="wizard-btn wizard-btn-ok" id="wizardDiffNext" type="button">下一步</button>
+                        </div>
+                    </div>
+
+                    <div class="wizard-step" id="wizardStepEra" style="display:none">
+                        <div class="wizard-title" id="wizardEraTitle">选择时代</div>
+                        <div class="wizard-options" id="wizardEraOptions"></div>
+                        <div class="wizard-btns">
+                            <button class="wizard-btn wizard-btn-cancel" id="wizardEraBack" type="button">上一步</button>
+                            <button class="wizard-btn wizard-btn-ok" id="wizardEraNext" type="button">下一步</button>
+                        </div>
+                    </div>
+
+                    <div class="wizard-step" id="wizardStepState" style="display:none">
+                        <div class="wizard-title" id="wizardStateTitle">选择状态</div>
+                        <div class="wizard-options" id="wizardStateOptions"></div>
+                        <div class="wizard-btns">
+                            <button class="wizard-btn wizard-btn-cancel" id="wizardStateBack" type="button">上一步</button>
+                            <button class="wizard-btn wizard-btn-ok" id="wizardStateCreate" type="button">创建</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 9. 编辑弹窗 -->
+            <div class="edit-overlay" id="editOverlay">
+                <div class="edit-box">
+                    <div class="edit-title">编辑对话</div>
+
+                    <label class="edit-label">对话名称</label>
+                    <input type="text" class="edit-input" id="editNameInput" placeholder="请输入名称" maxlength="20">
+
+                    <label class="edit-label">难度</label>
+                    <div class="edit-options" id="editDiffOptions">
+                        <button class="edit-option" data-value="easy" type="button">Easy</button>
+                        <button class="edit-option" data-value="normal" type="button">Normal</button>
+                        <button class="edit-option" data-value="hard" type="button">Hard</button>
+                        <button class="edit-option" data-value="hardcore" type="button">Hardcore</button>
+                    </div>
+
+                    <label class="edit-label">时代</label>
+                    <div class="edit-readonly" id="editEraReadonly"></div>
+
+                    <label class="edit-label">状态</label>
+                    <div class="edit-readonly" id="editStateReadonly"></div>
+
+                    <div class="edit-btns">
+                        <button class="edit-btn edit-btn-cancel" id="editCancel" type="button">取消</button>
+                        <button class="edit-btn edit-btn-ok" id="editOk" type="button">保存</button>
+                    </div>
+
+                    <div class="edit-danger-row">
+                        <button class="edit-btn edit-btn-danger" id="editDelete" type="button">删除此对话</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 10. 对话界面层 -->
+            <div class="layer dialog-layer" id="dialogLayer">
+                <div class="dialog-glow"></div>
+
+                <div class="dialog-header">
+                    <button class="dialog-back-btn" id="dialogBackBtn" type="button" aria-label="返回">←</button>
+                    <span class="dialog-title" id="dialogTitle">新对话</span>
+                </div>
+
+                <div class="dialog-info">
+                    <span>天数：<span class="info-val" id="infoDay">0</span></span>
+                    <span>时间：<span class="info-val" id="infoTime">08:00</span></span>
+                    <span>轮次：<span class="info-val" id="infoRound">0</span></span>
+                    <span>位置：<span class="info-val" id="infoPos">(0, 0)</span></span>
+                </div>
+
+                <div class="dialog-log" id="dialogLog"></div>
+
+                <div class="dialog-footer">
+                    <div class="dialog-stats" id="dialogStats">
+                        <div class="stat-item">
+                            <div class="stat-label"><span>❤️生命</span><span class="stat-value" id="statHpVal">—</span></div>
+                            <div class="stat-bar"><div id="statHpBar" style="width:0%;background:#e74c3c"></div></div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label"><span>🍲饱食</span><span class="stat-value" id="statFoodVal">—</span></div>
+                            <div class="stat-bar"><div id="statFoodBar" style="width:0%;background:#f39c12"></div></div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label"><span>💧水分</span><span class="stat-value" id="statWaterVal">—</span></div>
+                            <div class="stat-bar"><div id="statWaterBar" style="width:0%;background:#3498db"></div></div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label"><span>🏋️体力</span><span class="stat-value" id="statStaminaVal">—</span></div>
+                            <div class="stat-bar"><div id="statStaminaBar" style="width:0%;background:#9b59b6"></div></div>
+                        </div>
+                    </div>
+
+                    <div class="dialog-input-row">
+                        <input type="text" class="dialog-input" placeholder="你想做些什么呢" id="dialogInput">
+                        <button class="dialog-send-btn" type="button" id="dialogSendBtn" aria-label="发送">↑</button>
+                    </div>
+
+                    <div class="dialog-cmd-scroll">
+                        <div class="dialog-cmd-buttons">
+                            <button class="dialog-cmd-btn" type="button" data-cmd="探索">探索</button>
+                            <button class="dialog-cmd-btn" type="button" data-cmd="思索">思索</button>
+                            <button class="dialog-cmd-btn" type="button" id="recordBtn">记录</button>
+                            <button class="dialog-cmd-btn" type="button" id="diaryToggleBtn">日记</button>
+                            <button class="dialog-cmd-btn" type="button" id="mapToggleBtn">地图</button>
+                            <button class="dialog-cmd-btn" type="button" id="bagToggleBtn">背包</button>
+                        </div>
+                    </div>
+
+                    <!-- 日记面板 -->
+                    <div class="expand-panel" id="diaryPanel">
+                        <div class="expand-section-title">📖 日记</div>
+                        <div class="diary-pager">
+                            <div class="diary-nav">
+                                <button class="diary-nav-btn" type="button" id="diaryPrevBtn" aria-label="上一天">◁</button>
+                                <div class="diary-day-label" id="diaryDayLabel">—</div>
+                                <button class="diary-nav-btn" type="button" id="diaryNextBtn" aria-label="下一天">▷</button>
+                            </div>
+                            <div class="diary-content" id="diaryContent"></div>
+                            <div class="diary-page-num" id="diaryPageNum">— / —</div>
+                        </div>
+                    </div>
+
+                    <!-- 地图面板 -->
+                    <div class="expand-panel" id="mapPanel">
+                        <div class="expand-section-title">🗺️ 地图</div>
+                        <div class="map-area" id="mapArea">
+                            <div class="map-viewport" id="mapViewport">
+                                <div class="map-grid"></div>
+                                <div class="map-axis-x"></div>
+                                <div class="map-axis-y"></div>
+                                <div class="map-points" id="mapPoints"></div>
+                            </div>
+                            <div class="map-corner tl">N</div>
+                            <div class="map-corner br">E</div>
+                            <div class="map-zoom">
+                                <button class="map-zoom-btn" type="button" id="mapZoomIn">+</button>
+                                <button class="map-zoom-btn" type="button" id="mapZoomOut">−</button>
+                            </div>
+                            <div class="map-scale">
+                                <div class="map-scale-bar"></div>
+                                <div class="map-scale-text" id="mapScaleText">1 格 = 1 km</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 背包面板 -->
+                    <div class="expand-panel" id="bagPanel">
+                        <div class="expand-section-title">🎒 背包</div>
+                        <div class="bag-current" id="bagCurrent">当前：空手</div>
+                        <div class="bag-list" id="bagList"></div>
+
+                        <div class="expand-section-title" id="storageTitle" style="margin-top:10px;">📦 物资存放点</div>
+                        <div class="bag-current" id="storageCurrent" style="font-size:0.62rem;color:#888;">未设置</div>
+                        <div class="bag-list" id="storageList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 11. 记录地点弹窗 -->
+            <div class="record-overlay" id="recordOverlay">
+                <div class="record-box">
+                    <div class="record-title">记录地点</div>
+                    <div class="record-pos" id="recordPos">当前位置：(0, 0)</div>
+                    <input type="text" class="record-input" id="recordInput" placeholder="输入地点名称" maxlength="12" autocomplete="off">
+                    <label class="record-check">
+                        <input type="checkbox" id="recordSetStorage">
+                        <span>设为物资存放点</span>
+                    </label>
+                    <div class="record-btns">
+                        <button class="record-btn record-btn-cancel" id="recordCancel" type="button">取消</button>
+                        <button class="record-btn record-btn-ok" id="recordOk" type="button">记录</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 12. 拾取选项弹窗 -->
+            <div class="pickup-overlay" id="pickupOverlay">
+                <div class="pickup-box">
+                    <div class="pickup-title">发现物品</div>
+                    <div class="pickup-list" id="pickupList"></div>
+                    <div class="pickup-btns">
+                        <button class="pickup-btn pickup-btn-skip" id="pickupSkip" type="button">不拾起</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 13. 长按操作确认弹窗 -->
+            <div class="item-action-overlay" id="itemActionOverlay">
+                <div class="item-action-box">
+                    <div class="item-action-title" id="itemActionTitle">操作</div>
+                    <div class="item-action-btns">
+                        <button class="item-action-btn item-action-cancel" id="itemActionCancel" type="button">取消</button>
+                        <button class="item-action-btn item-action-ok" id="itemActionOk" type="button">确定</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 14. 设置弹窗 -->
+            <div class="settings-overlay" id="settingsOverlay">
+                <div class="settings-box">
+                    <div class="settings-title">设置</div>
+                    <label class="settings-label">API Key</label>
+                    <input type="password" class="settings-input" id="settingsApiKey" placeholder="sk-..." autocomplete="off">
+                    <label class="settings-label">接口地址</label>
+                    <input type="text" class="settings-input" id="settingsBaseUrl" placeholder="https://api.deepseek.com/chat/completions" autocomplete="off">
+                    <label class="settings-label">模型名</label>
+                    <input type="text" class="settings-input" id="settingsModel" placeholder="deepseek-chat" autocomplete="off">
+                    <div class="settings-hint">配置仅保存在你的浏览器中，不会上传到任何服务器。</div>
+                    <div class="settings-btns">
+                        <button class="settings-btn settings-btn-cancel" id="settingsCancel" type="button">取消</button>
+                        <button class="settings-btn settings-btn-ok" id="settingsOk" type="button">保存</button>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div id="inputRow">
-          <input type="text" id="cmdInput" placeholder="指令 > 输入自定义行动..." autocomplete="off">
-          <button id="btnSend">发送</button>
-        </div>
-      </footer>
     </div>
 
-    <!-- 右侧侧边栏：背包 / 家中物品 / 已保存地点 -->
-    <aside id="sidebar">
-      <div id="sidebarHeader">
-        <span>📦 物资</span>
-        <button id="btnSidebarToggle" title="展开/收起">◀</button>
-      </div>
-      <div id="sidebarBody"></div>
-    </aside>
-  </div>
-</div>
-
-<!-- 设置弹窗 -->
-<div id="settingsModal" style="display:none">
-  <div class="modal-box">
-    <h2>设置</h2>
-    <div id="apiKeyHint" class="hint"></div>
-
-    <label>界面主题</label>
-    <select id="themeSelect">
-      <option value="dark">暗黑</option>
-      <option value="neon">蓝紫渐变</option>
-    </select>
-
-    <label>AI 服务商</label>
-    <select id="providerSelect">
-      <option value="deepseek">DeepSeek</option>
-      <option value="glm">智谱 GLM（免费）</option>
-      <option value="qwen">通义千问（便宜）</option>
-      <option value="custom">自定义（OpenAI 兼容）</option>
-    </select>
-
-    <div id="customFields" style="display:none">
-      <label>接口地址（https://.../chat/completions）</label>
-      <input type="text" id="customUrlInput" placeholder="https://.../v1/chat/completions">
-      <label>模型名</label>
-      <input type="text" id="customModelInput" placeholder="如 local-model / gpt-4o-mini">
-    </div>
-
-    <label id="keyLabel">API Key</label>
-    <input type="password" id="apiKeyInput" placeholder="sk-...">
-
-    <!-- 自定义壁纸 -->
-    <fieldset id="wallpaperSection">
-      <legend>🖼️ 自定义壁纸</legend>
-      <input type="file" id="wallpaperFile" accept="image/*">
-      <button id="btnWallpaperUpload">上传壁纸图片</button>
-      <button id="btnWallpaperClear">清除壁纸</button>
-      <label class="range-row">模糊度 <span id="wallBlurVal">0</span>
-        <input type="range" id="wallBlur" min="0" max="24" step="1" value="0">
-      </label>
-      <label class="range-row">背景明暗 <span id="wallDimVal">0</span>
-        <input type="range" id="wallDim" min="0" max="80" step="1" value="0">
-      </label>
-      <div class="hint">壁纸与调节只保存在你的浏览器中；模糊+明暗让文字更清晰。</div>
-    </fieldset>
-
-    <!-- 自定义 Mod -->
-    <fieldset id="pluginSection">
-      <legend>🧩 自定义 Mod</legend>
-      <input type="file" id="pluginFile" accept=".txt,.text">
-      <button id="btnPluginImport">导入 Mod (.txt)</button>
-      <button id="btnPluginExample">查看 Mod 格式</button>
-      <textarea id="pluginPaste" rows="4" placeholder="或直接把 Mod 文本粘贴到这里（手机上传文件失败时用这个最方便）"></textarea>
-      <button id="btnPluginPaste">从文本框导入</button>
-      <div id="pluginList" class="plugin-list"></div>
-      <div class="hint">Mod 用记事本即可编写：可自定义状态栏、新增指令按钮、回答风格、追加规则（完整状态结算）。</div>
-    </fieldset>
-
-    <div class="modal-btns">
-      <button id="btnApiSave">保存</button>
-      <button id="btnApiCancel">关闭</button>
-    </div>
-  </div>
-</div>
-
-<div id="toast"></div>
-
-<!-- 壁纸背景层（全屏，位于内容之下） -->
-<div id="wallpaper"></div>
-
-<script src="game.js"></script>
+    <script src="worlds.js"></script>
+    <script src="game.js"></script>
 </body>
 </html>
